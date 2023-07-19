@@ -69,9 +69,9 @@ class WaterMarkAgent(object):
         ret = {}
         f = open(image_file, 'rb')
         tags = exifread.process_file(f)
-        for tag in tags.keys():
-            if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename', 'EXIF MakerNote'):
-                print(F"{tag}:{tags[tag]}")
+        # for tag in tags.keys():
+        #     if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename', 'EXIF MakerNote'):
+        #         print(F"{tag}:{tags[tag]}")
         ret['CameraMaker'] = str(tags.get("Image Make", ""))
         if ret['CameraMaker'] == "":
             return ret
@@ -229,40 +229,3 @@ class WaterMarkAgent(object):
         out_filename = os.path.join(self._out_dir, F"Mark_{image_name[0]}.{self._out_format}")
         xy_resolution= (exif_data['XResolution'] if exif_data['XResolution'] < 300 else 300, exif_data['YResolution'] if exif_data['YResolution'] < 300 else 300)
         background_img.save(out_filename, dpi=xy_resolution, quality=self._out_quality)
-
-def main(path: str | list[str], output_dir: str="", artist: str='', out_format: str='jpg', out_quality: int=80) -> None:
-    """main funciton.
-
-    Args:
-        path (str | list[str]): A image's path or the directory of images or the list of image's paths and directories of images. 
-        output_dir (str, optional): The directory where you want to save images with watermark. Defaults to "./output".
-        artist (str, optional): The nickname that you want to cover image author with in watermark. Defaults to ''.
-        out_format (str, optional): The format of images you want to save. Defaults to 'jpg'.
-        out_quality (int, optional): The quality of images you want to save. Only useful when the out_format is 'jpg'. Defaults to 80.
-    """    
-    cfg = {}
-    cfg['path'] = path
-    cfg['out_dir'] = output_dir
-    cfg['artist'] = artist
-    cfg['out_format'] = SUPPORT_OUT_FORMAT[out_format]
-    cfg['out_quality'] = out_quality
-    agent = WaterMarkAgent()
-    agent.set_cfg(cfg)
-    agent.run()
-
-if __name__ == "__main__":
-    # input = "C:/Users/WYJ/OneDrive/图片/导出/20230716晚霞/DSC_0263.jpg"
-    # input = "C:/Users/WYJ/OneDrive/图片/导出/20230716晚霞/DSC_0335.jpg"
-    # input = "C:/Users/WYJ/OneDrive/图片/本机照片/IMG_20210830_130105.jpg"
-    # input = "C:/Users/WYJ/OneDrive/图片/本机照片/IMG_20230416_124801.jpg"
-    # input = "C:/Users/WYJ/OneDrive/图片/本机照片/IMG_20230719_165609.heic"
-    # input = "C:/Users/WYJ/OneDrive/图片/2307深圳照片/照片/DSC_1118.jpg"
-    # input = "C:/Users/WYJ/OneDrive/图片/2307深圳照片/照片/DSC_1585.jpg"
-    # input = "C:/Users/WYJ/OneDrive/图片/2307深圳照片/照片/DSC_1555.jpg"
-    # input = "C:/Users/WYJ/Desktop/1689748786275.jpg"
-    # input = "C:/Users/WYJ/OneDrive/图片/导出/20230716晚霞"
-    # input = "C:/Users/WYJ/OneDrive/图片/导出/20230714光谷东"
-    # input = ["C:/Users/WYJ/OneDrive/图片/导出/20230716晚霞/DSC_0335.jpg", "C:/Users/WYJ/OneDrive/图片/本机照片/IMG_20210830_130105.jpg", "C:/Users/WYJ/OneDrive/图片/本机照片/IMG_20230416_124801.jpg", "C:/Users/WYJ/OneDrive/图片/2023年毕业典礼/DSC_2828.jpg"]
-    output_dir = ""
-    artist = 'Wu'
-    main(input, output_dir, artist, 'jpg', 80)
