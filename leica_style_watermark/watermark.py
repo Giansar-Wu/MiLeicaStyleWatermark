@@ -7,10 +7,12 @@ from pillow_heif import register_heif_opener
 
 register_heif_opener()
 
-PATH = os.path.abspath(os.path.dirname(__file__)).replace('\\','/')
+PATH = os.path.abspath(os.path.dirname(__file__))
+USER_PATH = os.path.expanduser('~')
 ROOT_PATH = os.path.dirname(PATH)
+DEFAULT_OUT_DIR = os.path.join(USER_PATH, 'Desktop', 'Output')
 SUPPORT_IN_FORMAT = ['.jpg', '.png', '.heic']
-SUPPORT_OUT_FORMAT = {'jpg':'jpg', 'png':'png'}
+SUPPORT_OUT_FORMAT = ['jpg', 'png']
 
 class LogoDontExistError(Exception):
     pass
@@ -21,20 +23,23 @@ class WaterMarkAgent(object):
         self._img_list = []
         self._artist = ''
         self._path = ''
-        self._out_dir = ''
+        self._out_dir = DEFAULT_OUT_DIR
         self._out_format = 'jpg'
         self._out_quality = 80
         
     def set_cfg(self, cfg: dict) -> None:
         self._path = cfg['path']
-        self._out_dir = cfg['out_dir']
+        if os.path.isdir(cfg['out_dir']):
+            self._out_dir = cfg['out_dir']
         self._artist = cfg['artist']
-        self._out_format = cfg['out_format']
-        self._out_quality = cfg['out_quality']
-        if self._out_quality > 95:
+        if cfg['out_format'] in SUPPORT_OUT_FORMAT:
+            self._out_format = cfg['out_format']
+        if cfg['out_quality'] > 95:
             self._out_quality = 95
-        elif self._out_quality < 0:
+        elif cfg['out_quality'] < 0:
             self._out_quality = 0
+        else:
+            self._out_quality = cfg['out_quality']
 
     def run(self) -> None:
         self._load_images()
@@ -111,8 +116,6 @@ class WaterMarkAgent(object):
     def _add_watermark(self, image_file: str) -> None:
         image_name = os.path.splitext(os.path.basename(image_file))
         print(F"正在处理:{image_name[0]}{image_name[1]}")
-        if self._out_dir == "":
-            self._out_dir = os.path.join(ROOT_PATH, 'output')
         if not os.path.exists(self._out_dir):
             os.makedirs(self._out_dir)
         exif_data = self._get_exif(image_file)
