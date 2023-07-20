@@ -21,6 +21,7 @@ def main(path: str | list[str], output_dir: str="", artist: str='', out_format: 
     agent.run()
 
 if __name__ == "__main__":
+    # please set the input
     input = ""
     output_dir = ""
     main(input, output_dir)

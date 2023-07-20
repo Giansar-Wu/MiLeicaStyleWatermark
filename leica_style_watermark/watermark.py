@@ -102,7 +102,6 @@ class WaterMarkAgent(object):
         ret['XResolution'] = int(str(tags.get("Image XResolution", "0")))
         ret['YResolution'] = int(str(tags.get("Image YResolution", "0")))
         ret["Artist"] = str(tags.get("Image Artist", ""))
-        # print(ret)
         return ret
 
     def _get_logo(self) -> list:
