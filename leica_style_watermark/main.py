@@ -1,4 +1,5 @@
 import watermark
+import os
 
 def main(path: str | list[str], output_dir: str="", artist: str='', out_format: str='jpg', out_quality: int=80) -> None:
     """main funciton.
@@ -21,7 +22,31 @@ def main(path: str | list[str], output_dir: str="", artist: str='', out_format: 
     agent.run()
 
 if __name__ == "__main__":
-    # please set the input
-    input = ""
-    output_dir = ""
-    main(input, output_dir)
+    print(F"Please enter some configuration and press Enter to use the default values. Default values will be used when input is not recognized.")
+
+    out_dir = input(F"The out directory(defaults:$HOME/Desktop/Output):")
+    if not os.path.isdir(out_dir):
+        out_dir = ""
+    
+    artist = input(F"The artist of photos(default:''):")
+
+    out_format = input(F"The out format({watermark.SUPPORT_OUT_FORMAT} default:jpg):")
+    if out_format not in watermark.SUPPORT_OUT_FORMAT:
+        out_format = 'jpg'
+    if out_format == 'jpg':
+        out_quality = input(F"The quality of output immages(0-95 default:80):")
+        try:
+            out_quality = int(out_quality)
+            if (out_quality < 0) or (out_quality > 95):
+                out_quality = 80
+        except ValueError:
+            out_quality = 80
+            
+    path = input(F"The path of directory where the pending images are(input 'q' to exit):")
+    while path != 'q':
+        if os.path.isdir(path) or os.path.isfile(path):
+            main(path, out_dir, artist, out_format, out_quality)
+        else:
+            print(F"{path} can't be recognized!")
+        path = input(F"The path of directory where the pending images are(input 'q' to quit):")
+    print(F"Exit!")
