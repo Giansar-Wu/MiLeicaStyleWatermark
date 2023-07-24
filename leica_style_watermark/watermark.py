@@ -140,7 +140,7 @@ class WaterMarkAgent(object):
         # 第一行字体与水印区高度的比例
         font_1_ratio = 0.4
         # 第二行字体与水印区高度的比例
-        font_2_ratio = 0.33
+        font_2_ratio = 0.35
         # 最外侧边距与图片最长边的比例
         margin_ratio = 1/100 
         # 水印区高度与图片最长边的比例
@@ -210,7 +210,7 @@ class WaterMarkAgent(object):
         # draw guideline
         guideline_length = watermark_height + 2 * margin_2
         guideline = Image.new("RGB", (5, guideline_length), "gray")
-        guideline_left = new_width - margin - r_text_1_width - margin_2
+        guideline_left = new_width - margin - r_text_1_width - int(0.5 * margin)
         guideline_top = new_height - margin - 2 * margin_2 - watermark_height
         background_img.paste(guideline, (guideline_left, guideline_top))
 
@@ -223,7 +223,7 @@ class WaterMarkAgent(object):
         logo_new_height = int(logo_height * logo_ratio)
         logo_img = logo_img.resize((logo_new_width, logo_new_height), Image.LANCZOS)
 
-        logo_left = guideline_left - margin_2 - logo_new_width
+        logo_left = new_width - 2 * margin - r_text_1_width - logo_new_width
         logo_top = text_1_top 
         r, g, b, a = logo_img.split()
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
