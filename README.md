@@ -1,5 +1,5 @@
 # Introduction
-This tool is used for add Mi&Leica style watermark to photos.
+This tool is used to add Mi&Leica style watermark for photos.
 
 # Requirements
 python >= 3.10.10
