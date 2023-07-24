@@ -135,18 +135,23 @@ class WaterMarkAgent(object):
                 elif orientation== 8 : 
                     img = img.rotate(90, expand = True)
         img_width, img_height = img.size
+        
+        # 加水印后的图片从上到下的构成  margin + img_height + margin + margin_2 + watermark_height + margin_2 + margin
+        # 第一行字体与水印区高度的比例
+        font_1_ratio = 0.4
+        # 第二行字体与水印区高度的比例
+        font_2_ratio = 0.33
+        # 最外侧边距与图片最长边的比例
+        margin_ratio = 1/100 
+        # 水印区高度与图片最长边的比例
+        watermark_height_ratio = 1/25 
+        # 水印区内边距与最外侧边距的比例
+        margin_2_ratio = 0.3
 
-        font_1_ratio = 0.55
-        font_2_ratio = 0.38
-        if img_width >= img_height:
-            margin = int(img_height / 100)
-            unit_width = int(img_height * 0.45)
-            unit_height = int((unit_width - 2 * margin) / (20 * font_1_ratio + 1)) + margin
-        else:
-            margin = int(img_width / 100)
-            unit_width = int(img_width * 0.45)
-            unit_height = int((unit_width - 2 * margin) / (20 * font_1_ratio + 1)) + margin
-        new_height = img_height + 3 * margin + unit_height
+        margin = int(margin_ratio * max(img_width, img_height))
+        watermark_height = int(watermark_height_ratio * max(img_width, img_height))
+        margin_2 = int(margin_2_ratio * margin)
+        new_height = img_height + watermark_height + 3 * margin + 2 * margin_2
         new_width = img_width + 2 * margin
         background_img = Image.new("RGB", (new_width, new_height), 'white')
 
@@ -185,45 +190,41 @@ class WaterMarkAgent(object):
         draw = ImageDraw.Draw(background_img)
 
         font_file_1 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Bold.ttf')
-        font_pt_1 = int((unit_height - margin) * font_1_ratio)
+        font_pt_1 = int(watermark_height * font_1_ratio)
         font_1 = ImageFont.truetype(font_file_1, font_pt_1)
 
         font_file_2 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Regular.ttf')
-        font_pt_2 = int((unit_height - margin) * font_2_ratio)
+        font_pt_2 = int(watermark_height * font_2_ratio)
         font_2 = ImageFont.truetype(font_file_2, font_pt_2)
         
-        text_1_top = new_height - margin - unit_height + int(0.5 * margin)
-        text_2_baseline = new_height - int(1.5 * margin)
-        draw.text((int(1.5 * margin), text_1_top), left_text_1, fill='black', anchor="lt", font=font_1)
-        draw.text((int(1.5 * margin), text_2_baseline), left_text_2, fill='gray', anchor="ls", font=font_2)
+        text_1_top = new_height - margin - margin_2 - watermark_height
+        text_2_baseline = new_height - margin - margin_2
+        draw.text((margin, text_1_top), left_text_1, fill='black', anchor="lt", font=font_1)
+        draw.text((margin, text_2_baseline), left_text_2, fill='gray', anchor="ls", font=font_2)
 
-        draw.text((new_width - int(1.5 * margin), text_1_top), right_text_1, fill='black', anchor="rt", font=font_1)
+        draw.text((new_width - margin, text_1_top), right_text_1, fill='black', anchor="rt", font=font_1)
         r_text_1_width = int(font_1.getlength(right_text_1))
-        draw.text((new_width - int(1.5 * margin) - r_text_1_width, text_2_baseline), right_text_2, fill='gray', anchor="ls", font=font_2)
-        draw.text((new_width - int(1.5 * margin), text_2_baseline), right_text_3, fill='gray', anchor="rs", font=font_2)
+        draw.text((new_width - margin - r_text_1_width, text_2_baseline), right_text_2, fill='gray', anchor="ls", font=font_2)
+        draw.text((new_width - margin, text_2_baseline), right_text_3, fill='gray', anchor="rs", font=font_2)
 
         # draw guideline
-        guideline_length = unit_height
+        guideline_length = watermark_height + 2 * margin_2
         guideline = Image.new("RGB", (5, guideline_length), "gray")
-        guideline_left = new_width - 2 * margin - r_text_1_width
-        guideline_top = new_height - margin - unit_height
+        guideline_left = new_width - margin - r_text_1_width - margin_2
+        guideline_top = new_height - margin - 2 * margin_2 - watermark_height
         background_img.paste(guideline, (guideline_left, guideline_top))
 
         # draw logo
         logo_img = Image.open(logo_file)
         logo_img = logo_img.convert("RGBA")
         logo_width, logo_height = logo_img.size
-        logo_ratio = math.sqrt((unit_height - margin)**2 / (logo_width * logo_height))
+        logo_ratio = math.sqrt(watermark_height ** 2 / (logo_width * logo_height))
         logo_new_width = int(logo_width * logo_ratio)
         logo_new_height = int(logo_height * logo_ratio)
-        # logo_new_height = unit_height - margin
-        # logo_new_width = int((logo_width / logo_height) * logo_new_height)
         logo_img = logo_img.resize((logo_new_width, logo_new_height), Image.LANCZOS)
 
-        logo_left = guideline_left - int(0.5 * margin) - logo_new_width
-        logo_top = new_height - margin - int(0.5 * unit_height) - int(0.5 * logo_new_height)
-        # logo_left = guideline_left - int(0.5 * margin) - logo_new_width
-        # logo_top = guideline_top + int(0.5 * margin)
+        logo_left = guideline_left - margin_2 - logo_new_width
+        logo_top = text_1_top 
         r, g, b, a = logo_img.split()
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
 
