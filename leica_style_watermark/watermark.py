@@ -25,7 +25,7 @@ class WaterMarkAgent(object):
         self._path = ''
         self._out_dir = DEFAULT_OUT_DIR
         self._out_format = 'jpg'
-        self._out_quality = 80
+        self._out_quality = 100
         
     def set_cfg(self, cfg: dict) -> None:
         self._path = cfg['path']
@@ -34,14 +34,18 @@ class WaterMarkAgent(object):
         self._artist = cfg['artist']
         if cfg['out_format'] in SUPPORT_OUT_FORMAT:
             self._out_format = cfg['out_format']
-        if cfg['out_quality'] > 95:
-            self._out_quality = 95
+        if cfg['out_quality'] > 100:
+            self._out_quality = 100
         elif cfg['out_quality'] < 0:
             self._out_quality = 0
         else:
             self._out_quality = cfg['out_quality']
 
     def run(self) -> None:
+        print(F"Out dir:{self._out_dir}")
+        print(F"Out format:{self._out_format}")
+        if self._out_format == 'jpg':
+            print(F"Out quality:{self._out_quality}")
         self._load_images()
         for img in self._img_list:
             self._add_watermark(img)
