@@ -13,6 +13,7 @@ ROOT_PATH = os.path.dirname(PATH)
 DEFAULT_OUT_DIR = os.path.join(USER_PATH, 'Desktop', 'Output')
 SUPPORT_IN_FORMAT = ['.jpg', '.png', '.heic']
 SUPPORT_OUT_FORMAT = ['jpg', 'png']
+PHONE = {'2112123AC':'Xiaomi 12X'}
 
 class LogoDontExistError(Exception):
     pass
@@ -85,6 +86,8 @@ class WaterMarkAgent(object):
         if ret['CameraMaker'] == "":
             return ret
         ret['Camera'] = str(tags.get("Image Model", ""))
+        if ret['Camera'] in PHONE.keys():
+            ret['Camera'] = PHONE[ret['Camera']]
         ret['LenModel'] = str(tags.get("EXIF LensModel", ""))
         ret['DateTime'] = str(tags.get("EXIF DateTimeOriginal", ""))
         datetime = ret['DateTime'].split(" ")
@@ -150,11 +153,17 @@ class WaterMarkAgent(object):
         # 水印区高度与图片最长边的比例
         watermark_height_ratio = 1/25 
         # 水印区内边距与最外侧边距的比例
-        margin_2_ratio = 0.3
+        margin_2_ratio = 0
 
         margin = int(margin_ratio * max(img_width, img_height))
         watermark_height = int(watermark_height_ratio * max(img_width, img_height))
         margin_2 = int(margin_2_ratio * margin)
+        bottom = watermark_height + margin * 2 + margin_2 * 2
+
+        # logo与水印区全高度的比例 0~1
+        # logo_ratio = watermark_height / bottom
+        logo_ratio = 0.8
+
         new_height = img_height + watermark_height + 3 * margin + 2 * margin_2
         new_width = img_width + 2 * margin
         background_img = Image.new("RGB", (new_width, new_height), 'white')
@@ -165,7 +174,7 @@ class WaterMarkAgent(object):
         # judge logo
         brand = exif_data['CameraMaker'].split(" ")[0]
         brand = brand.title()
-        # brand = 'Vivo'
+        # brand = 'Sony'
         has_not_logo = True
         for logo in self._logos:
             if brand in os.path.basename(logo):
@@ -212,23 +221,24 @@ class WaterMarkAgent(object):
         draw.text((new_width - margin, text_2_baseline), right_text_3, fill='gray', anchor="rs", font=font_2)
 
         # draw guideline
-        guideline_length = watermark_height + 2 * margin_2
+        guideline_length = watermark_height + 2 * margin_2 + margin
         guideline = Image.new("RGB", (5, guideline_length), "gray")
         guideline_left = new_width - margin - r_text_1_width - int(0.5 * margin)
-        guideline_top = new_height - margin - 2 * margin_2 - watermark_height
+        guideline_top = new_height - margin - 2 * margin_2 - watermark_height - int(margin / 2)
         background_img.paste(guideline, (guideline_left, guideline_top))
 
         # draw logo
         logo_img = Image.open(logo_file)
         logo_img = logo_img.convert("RGBA")
         logo_width, logo_height = logo_img.size
-        logo_ratio = math.sqrt(watermark_height ** 2 / (logo_width * logo_height))
-        logo_new_width = int(logo_width * logo_ratio)
-        logo_new_height = int(logo_height * logo_ratio)
+        h = bottom * logo_ratio
+        logo_area_ratio = math.sqrt(h ** 2 / (logo_width * logo_height))
+        logo_new_width = int(logo_width * logo_area_ratio)
+        logo_new_height = int(logo_height * logo_area_ratio)
         logo_img = logo_img.resize((logo_new_width, logo_new_height), Image.LANCZOS)
 
         logo_left = new_width - 2 * margin - r_text_1_width - logo_new_width
-        logo_top = text_1_top 
+        logo_top = int(new_height - bottom / 2 -  logo_new_height / 2)
         r, g, b, a = logo_img.split()
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
 
