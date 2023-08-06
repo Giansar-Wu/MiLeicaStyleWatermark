@@ -145,7 +145,7 @@ class WaterMarkAgent(object):
         
         # 加水印后的图片从上到下的构成  margin + img_height + margin + margin_2 + watermark_height + margin_2 + margin
         # 第一行字体与水印区高度的比例
-        font_1_ratio = 0.4
+        font_1_ratio = 0.47
         # 第二行字体与水印区高度的比例
         font_2_ratio = 0.35
         # 最外侧边距与图片最长边的比例
@@ -187,10 +187,11 @@ class WaterMarkAgent(object):
         # draw text
         left_text_1 = F"{exif_data['Camera']}"
         left_text_2 = F"{exif_data['LenModel']}"
-        if exif_data['FocalLength'] != exif_data['35mmFilm']:
-            right_text_1 = F"{exif_data['FocalLength']}mm({exif_data['35mmFilm']}mm)  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
-        else:
-            right_text_1 = F"{exif_data['FocalLength']}mm  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
+        # if exif_data['FocalLength'] != exif_data['35mmFilm']:
+        #     right_text_1 = F"{exif_data['FocalLength']}mm({exif_data['35mmFilm']}mm)  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
+        # else:
+        #     right_text_1 = F"{exif_data['FocalLength']}mm  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
+        right_text_1 = F"{exif_data['FocalLength']}mm  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
         right_text_2 = F"{exif_data['DateTime']}"
         if self._artist != '':
             right_text_3 = F"PHOTO BY {self._artist}"
