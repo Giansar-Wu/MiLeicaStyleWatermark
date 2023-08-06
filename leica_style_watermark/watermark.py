@@ -145,13 +145,13 @@ class WaterMarkAgent(object):
         
         # 加水印后的图片从上到下的构成  margin + img_height + margin + margin_2 + watermark_height + margin_2 + margin
         # 第一行字体与水印区高度的比例
-        font_1_ratio = 0.47
+        font_1_ratio = 0.42
         # 第二行字体与水印区高度的比例
-        font_2_ratio = 0.35
+        font_2_ratio = 0.32
         # 最外侧边距与图片最长边的比例
         margin_ratio = 1/100 
         # 水印区高度与图片最长边的比例
-        watermark_height_ratio = 1/25 
+        watermark_height_ratio = 1/24 
         # 水印区内边距与最外侧边距的比例
         margin_2_ratio = 0
 
