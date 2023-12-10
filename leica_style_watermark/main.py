@@ -22,19 +22,22 @@ def main(path: str | list[str], output_dir: str="", artist: str='', out_format: 
     agent.run()
 
 if __name__ == "__main__":
-    print(F"Please enter some configuration and press Enter to use the default values. Default values will be used when input is not recognized.")
+    print(F"Please enter some configuration. (Default values will be used by typing enter.)")
 
-    out_dir = input(F"The out directory(defaults:$HOME/Desktop/Output):")
+    out_dir = input("The output directory(defaults:{}/Desktop/Output):".format(os.path.expanduser('~').replace('\\','/')))
     if not os.path.isdir(out_dir):
         out_dir = ""
     
     artist = input(F"The artist of photos(default:''):")
 
-    out_format = input(F"The out format({watermark.SUPPORT_OUT_FORMAT} default:jpg):")
-    if out_format not in watermark.SUPPORT_OUT_FORMAT:
+    out_format = input(F"The output format({watermark.SUPPORT_OUT_FORMAT} default:'jpg'):")
+    if out_format == '':
+        out_format = 'jpg'
+    elif out_format not in watermark.SUPPORT_OUT_FORMAT:
+        print(F"The format '{out_format}' are not supported, and 'jpg' will be used!")
         out_format = 'jpg'
     if out_format == 'jpg':
-        out_quality = input(F"The quality of output immages(0-95 default:80):")
+        out_quality = input(F"The quality of output images(0-95 default:80):")
         try:
             out_quality = int(out_quality)
             if (out_quality < 0) or (out_quality > 100):
@@ -42,11 +45,11 @@ if __name__ == "__main__":
         except ValueError:
             out_quality = 100
             
-    path = input(F"The path of directory where the pending images are(input 'q' to exit):")
+    path = input(F"Input the path of images to be processed(input 'q' to exit):")
     while path != 'q':
         if os.path.isdir(path) or os.path.isfile(path):
             main(path, out_dir, artist, out_format, out_quality)
         else:
-            print(F"{path} can't be recognized!")
-        path = input(F"The path of directory where the pending images are(input 'q' to quit):")
+            print(F"Path '{path}' can't be identified!")
+        path = input(F"Input the path of images to be processed(input 'q' to quit):")
     print(F"Exit!")
