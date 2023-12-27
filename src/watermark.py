@@ -17,9 +17,6 @@ SUPPORT_IN_FORMAT = ['.jpg', '.png', '.heic']
 SUPPORT_OUT_FORMAT = ['jpg', 'png']
 PHONE = {'2112123AC':'Xiaomi 12X'}
 
-class LogoDontExistError(Exception):
-    pass
-
 class WaterMarkAgent(object):
     def __init__(self) -> None:
         self._logos = self._get_logo()
@@ -162,7 +159,7 @@ class WaterMarkAgent(object):
                 has_not_logo = False
         if has_not_logo:
             print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {brand}'s logo doesn't exist.")
-            raise LogoDontExistError
+            return None
 
         # draw text
         left_text_1 = F"{exif_data['Camera']}"

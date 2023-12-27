@@ -1,12 +1,10 @@
 import os
 import sys
-import time
 import datetime
-from threading import Thread
 
-from PySide6.QtCore import Qt, QSize, QObject, Signal, QThread
-from PySide6.QtGui import QCloseEvent, QIcon, QGuiApplication, QPixmap, QColor, QImage, QPainter, QTextCursor
-from PySide6.QtWidgets import QMainWindow, QApplication, QWidget, QGridLayout, QLineEdit, QComboBox, QLabel, QCheckBox,  QFileDialog, QPushButton, QTextEdit, QSpinBox
+from PySide6.QtCore import QObject, Signal, QThread
+from PySide6.QtGui import QIcon, QGuiApplication, QTextCursor
+from PySide6.QtWidgets import QMainWindow, QApplication, QWidget, QGridLayout, QLineEdit, QComboBox, QLabel, QFileDialog, QPushButton, QTextEdit, QSpinBox
 
 import watermark
 
