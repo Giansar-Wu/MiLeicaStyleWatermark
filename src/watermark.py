@@ -1,5 +1,6 @@
 import os
 import math
+import datetime
 from PIL import Image, ImageDraw, ImageFont, ExifTags
 import exifread
 
@@ -9,6 +10,7 @@ register_heif_opener()
 
 PATH = os.path.abspath(os.path.dirname(__file__))
 USER_PATH = os.path.expanduser('~')
+DESKTOP_PATH = os.path.join(USER_PATH, 'Desktop')
 ROOT_PATH = os.path.dirname(PATH)
 DEFAULT_OUT_DIR = os.path.join(USER_PATH, 'Desktop', 'Output')
 SUPPORT_IN_FORMAT = ['.jpg', '.png', '.heic']
@@ -21,53 +23,32 @@ class LogoDontExistError(Exception):
 class WaterMarkAgent(object):
     def __init__(self) -> None:
         self._logos = self._get_logo()
-        self._img_list = []
-        self._artist = ''
-        self._path = ''
-        self._out_dir = DEFAULT_OUT_DIR
-        self._out_format = 'jpg'
-        self._out_quality = 100
-        
-    def set_cfg(self, cfg: dict) -> None:
-        self._path = cfg['path']
-        if os.path.isdir(cfg['out_dir']):
-            self._out_dir = cfg['out_dir']
-        self._artist = cfg['artist']
-        if cfg['out_format'] in SUPPORT_OUT_FORMAT:
-            self._out_format = cfg['out_format']
-        if cfg['out_quality'] > 100:
-            self._out_quality = 100
-        elif cfg['out_quality'] < 0:
-            self._out_quality = 0
+
+    def run(self, in_dir: str, out_dir: str=DEFAULT_OUT_DIR, out_format: str='jpg', out_quality: int | None = None, artist: str | None = None) -> None:
+        if in_dir == "":
+            print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 照片文件夹不可为空!")
+            return None
+        elif not os.path.exists(in_dir):
+            print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 照片文件夹不存在!")
+            return None
         else:
-            self._out_quality = cfg['out_quality']
-
-    def run(self) -> None:
-        print(F"Out dir:{self._out_dir}")
-        print(F"Out format:{self._out_format}")
-        if self._out_format == 'jpg':
-            print(F"Out quality:{self._out_quality}")
-        self._load_images()
-        for img in self._img_list:
-            self._add_watermark(img)
-
-    def _load_images(self) -> None:
-        if isinstance(self._path, str):
-            if os.path.isdir(self._path):
-                img_list =  self._get_all_images(self._path)
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+            img_list = self._load_images(in_dir)
+            if img_list:
+                for img in img_list:
+                    self._add_watermark(img, out_dir, out_format, out_quality, artist)
             else:
-                img_list = [self._path]
+                print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 未找到照片!")
+
+    def _load_images(self, in_path: str) -> list:
+        if os.path.isdir(in_path):
+            img_list =  self._get_all_imagefiles(in_path)
         else:
-            img_list = []
-            for path in self._path:
-                if os.path.isdir(path):
-                    tmp = self._get_all_images(path)
-                    img_list.extend(tmp)
-                else:
-                    img_list.append(path)
-        self._img_list = img_list
+            img_list = [in_path]
+        return img_list
     
-    def _get_all_images(self, dir: str) -> list:
+    def _get_all_imagefiles(self, dir: str) -> list:
         files_list = []
         for root, _, files in os.walk(dir):
             for file in files:
@@ -119,16 +100,15 @@ class WaterMarkAgent(object):
                 logos_list.append(os.path.join(root, file))
         return logos_list
 
-    def _add_watermark(self, image_file: str) -> None:
+    def _add_watermark(self, image_file: str, out_dir: str, out_format: str, out_quality: int | None=None, artist: str | None=None) -> None:
         image_name = os.path.splitext(os.path.basename(image_file))
-        print(F"正在处理:{image_name[0]}{image_name[1]}")
-        if not os.path.exists(self._out_dir):
-            os.makedirs(self._out_dir)
+        print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 正在处理:{image_name[0]}{image_name[1]}")
+
         exif_data = self._get_exif(image_file)
 
         if exif_data['CameraMaker'] == "":
-            print(F"{image_name} doesn's has exif data!")
-            return 0
+            print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {image_name[0]}{image_name[1]} 没有exif数据,请确保照片未抹exif信息!")
+            return None
         img = Image.open(image_file)
         exif=dict(img.getexif().items())
         # angles = [Image.ROTATE_90, Image.ROTATE_180, Image.ROTATE_270]
@@ -181,25 +161,24 @@ class WaterMarkAgent(object):
                 logo_file = logo
                 has_not_logo = False
         if has_not_logo:
-            print(F"{brand}'s logo doesn't exist.")
+            print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {brand}'s logo doesn't exist.")
             raise LogoDontExistError
 
         # draw text
         left_text_1 = F"{exif_data['Camera']}"
         left_text_2 = F"{exif_data['LenModel']}"
-        # if exif_data['FocalLength'] != exif_data['35mmFilm']:
-        #     right_text_1 = F"{exif_data['FocalLength']}mm({exif_data['35mmFilm']}mm)  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
-        # else:
-        #     right_text_1 = F"{exif_data['FocalLength']}mm  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
-        right_text_1 = F"{exif_data['FocalLength']}mm  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
+
+        # 不等效焦距
+        # right_text_1 = F"{exif_data['FocalLength']}mm  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
+        # 等效焦距
+        right_text_1 = F"{exif_data['35mmFilm']}mm  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
+
         right_text_2 = F"{exif_data['DateTime']}"
-        if self._artist != '':
-            right_text_3 = F"PHOTO BY {self._artist}"
-        else:
-            if exif_data['Artist'] != "":
-                right_text_3 = F"PHOTO BY {exif_data['Artist']}"
-            else:
-                right_text_3 = ""
+        right_text_3 = ""
+        if artist:
+            right_text_3 = F"PHOTO BY {artist}"
+        elif exif_data['Artist']:
+            right_text_3 = F"PHOTO BY {exif_data['Artist']}"
 
         draw = ImageDraw.Draw(background_img)
 
@@ -244,6 +223,6 @@ class WaterMarkAgent(object):
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
 
         # 保存修改后的图片
-        out_filename = os.path.join(self._out_dir, F"Mark_{image_name[0]}.{self._out_format}")
+        out_filename = os.path.join(out_dir, F"Mark_{image_name[0]}.{out_format}")
         xy_resolution= (exif_data['XResolution'] if exif_data['XResolution'] < 300 else 300, exif_data['YResolution'] if exif_data['YResolution'] < 300 else 300)
-        background_img.save(out_filename, dpi=xy_resolution, quality=self._out_quality)
+        background_img.save(out_filename, dpi=xy_resolution, quality=out_quality)

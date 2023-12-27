@@ -1,3 +1,4 @@
 pillow
 pillow_heif
 exifread < 3.0.0
+pyside6

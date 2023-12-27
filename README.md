@@ -9,7 +9,7 @@ Please install python version 3.10.10 or above at first. Then run the command be
 > $ pip3 install -r requirements.txt
 
 # Run
-> $ python ./leica_style_watermark/main.py
+> $ python src/main.py
 
 # Verification
 Nikon
