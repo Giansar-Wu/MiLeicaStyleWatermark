@@ -1,9 +1,10 @@
 import os
 import sys
 import datetime
+from threading import Thread
 
 from PySide6.QtCore import QObject, Signal, QThread
-from PySide6.QtGui import QIcon, QGuiApplication, QTextCursor
+from PySide6.QtGui import QIcon, QGuiApplication, QTextCursor, QCloseEvent
 from PySide6.QtWidgets import QMainWindow, QApplication, QWidget, QGridLayout, QLineEdit, QComboBox, QLabel, QFileDialog, QPushButton, QTextEdit, QSpinBox
 
 import watermark
@@ -134,12 +135,8 @@ class MyMainWindow(QMainWindow):
         out_format = self.out_format_select.currentText()
         out_quality = self.out_quality_input.value()
         artist = self.out_author_input.text()
-        self._worker_thread = QThread(self)
-        self._worker = MyWorker(self.agent,in_dir, out_dir, out_format, out_quality, artist)
-        self._worker.moveToThread(self._worker_thread)
-        self._worker.end.connect(self._change_start_button_event)
-        self._worker_thread.started.connect(self._worker.run)
-        self._worker_thread.start()
+        mythread = Thread(target=self._start, args=(in_dir, out_dir, out_format, out_quality, artist), daemon=True)
+        mythread.start()
     
     def _change_start_button_event(self):
         self.start_button.setEnabled(True)
@@ -160,21 +157,9 @@ class MyMainWindow(QMainWindow):
         self.log_display.setTextCursor(log_cursor)
         self.log_display.ensureCursorVisible()
     
-class MyWorker(QObject):
-    end = Signal(str)
-
-    def __init__(self, agent: watermark.WaterMarkAgent, in_dir: str, out_dir: str, out_format: str, out_quality: int | None, artist: str | None) -> None:
-        super().__init__()
-        self.agent = agent
-        self.in_dir = in_dir
-        self.out_dir = out_dir
-        self.out_format = out_format
-        self.out_quality = out_quality
-        self.artist = artist
-    
-    def run(self):
-        self.agent.run(self.in_dir, self.out_dir, self.out_format, self.out_quality, self.artist)
-        self.end.emit("end")
+    def _start(self, in_dir: str, out_dir: str, out_format: str, out_quality: int | None, artist: str | None):
+        self.agent.run(in_dir, out_dir, out_format, out_quality, artist)
+        self._change_start_button_event()
 
 class Stream(QObject):
     stream_update = Signal(str)
