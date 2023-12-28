@@ -3,13 +3,15 @@ import sys
 import datetime
 from threading import Thread
 
-from PySide6.QtCore import QObject, Signal, QThread
-from PySide6.QtGui import QIcon, QGuiApplication, QTextCursor, QCloseEvent
-from PySide6.QtWidgets import QMainWindow, QApplication, QWidget, QGridLayout, QLineEdit, QComboBox, QLabel, QFileDialog, QPushButton, QTextEdit, QSpinBox
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtGui import QIcon, QGuiApplication, QTextCursor
+from PySide6.QtWidgets import QMainWindow, QApplication, QWidget, QGridLayout, QLineEdit, QComboBox, QLabel, QFileDialog, QPushButton, QTextEdit, QSpinBox, QDialog, QDialogButtonBox, QMessageBox
 
 import watermark
 
 class MyMainWindow(QMainWindow):
+    stage2_needed = Signal(list)
+
     def __init__(self):
         super().__init__()
         screen = QGuiApplication.primaryScreen().geometry()
@@ -21,6 +23,7 @@ class MyMainWindow(QMainWindow):
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
         self._init_ui()
+        # self._init_signal()
         self._connect()
         self.agent = watermark.WaterMarkAgent()
 
@@ -81,7 +84,7 @@ class MyMainWindow(QMainWindow):
         self.out_quality_input = QSpinBox(self.central_widget)
         self.out_quality_input.setMinimum(1)
         self.out_quality_input.setMaximum(100)
-        self.out_quality_input.setValue(85)
+        self.out_quality_input.setValue(90)
         self.central_layout.addWidget(self.out_quality_input, 2, 3, 1, 1)
 
         # out author label
@@ -91,6 +94,7 @@ class MyMainWindow(QMainWindow):
 
         # out author input
         self.out_author_input = QLineEdit(self.central_widget)
+        self.out_author_input.setText("Artist")
         self.central_layout.addWidget(self.out_author_input, 2, 5, 1, 1)
 
         # start button 
@@ -102,12 +106,14 @@ class MyMainWindow(QMainWindow):
         self.log_display = QTextEdit(self.central_widget)
         self.log_display.setReadOnly(True)
         self.central_layout.addWidget(self.log_display, 3, 0, 6, 7)
-
+    
     def _connect(self):
         self.images_path_select_button.clicked.connect(self._select_images_path_event)
         self.save_path_button.clicked.connect(self._select_save_path_event)
         self.out_format_select.currentTextChanged.connect(self._out_format_change_event)
         self.start_button.clicked.connect(self._start_event)
+
+        self.stage2_needed.connect(self._stage2_event)
 
     def _select_images_path_event(self):
         filepath = QFileDialog.getExistingDirectory(self.central_widget, dir=watermark.DESKTOP_PATH)
@@ -122,7 +128,7 @@ class MyMainWindow(QMainWindow):
     def _out_format_change_event(self):
         current_format = self.out_format_select.currentText()
         if current_format == 'jpg':
-            self.out_quality_input.setValue(85)
+            self.out_quality_input.setValue(90)
             self.out_quality_input.setReadOnly(False)
         elif current_format == 'png':
             self.out_quality_input.setValue(100)
@@ -158,8 +164,103 @@ class MyMainWindow(QMainWindow):
         self.log_display.ensureCursorVisible()
     
     def _start(self, in_dir: str, out_dir: str, out_format: str, out_quality: int | None, artist: str | None):
-        self.agent.run(in_dir, out_dir, out_format, out_quality, artist)
+        ret = self.agent.run(in_dir, out_dir, out_format, out_quality, artist)
+        if ret:
+            self.stage2_needed.emit(ret)
+        else:
+            self._change_start_button_event()
+    
+    def _start2(self, files: list, brand: str, model: str, out_dir: str, out_format: str, out_quality: int | None, artist: str | None):
+        self.agent.run2(files, brand, model, out_dir, out_format, out_quality, artist)
         self._change_start_button_event()
+    
+    def _stage2_event(self, files: list):
+        dlg = QMessageBox.question(self, "询问", F"{files} 没有exif信息!是否自定义输入照片信息添加水印？")
+        if dlg == QMessageBox.Yes:
+            self.dlg_ret = []
+            new_dlg = CustomDialog(self, self.agent)
+            new_dlg.ret.connect(self._get_dlg_ret)
+            new_dlg.exec()
+            if self.dlg_ret:
+                out_dir = self.save_path_display.text()
+                out_format = self.out_format_select.currentText()
+                out_quality = self.out_quality_input.value()
+                artist = self.out_author_input.text()
+                self._start2(files, self.dlg_ret[0], self.dlg_ret[1], out_dir, out_format, out_quality, artist)
+            else:
+                self._change_start_button_event()
+        elif dlg == QMessageBox.No:
+            self._change_start_button_event()
+    
+    def _get_dlg_ret(self, ret: list):
+        self.dlg_ret = ret
+
+class CustomDialog(QDialog):
+    ret = Signal(list)
+
+    def __init__(self, parent, agent: watermark.WaterMarkAgent):
+        super().__init__(parent)
+
+        self.setWindowTitle("请选择自定义选项")
+        self.agent = agent
+        self._init_ui()
+        self._init_connect()
+    
+    def _init_ui(self):
+        self.layout = QGridLayout()
+        for i in range(3):
+            self.layout.setColumnMinimumWidth(i, 1)
+            self.layout.setColumnStretch(i, 1)
+        self.brand_label = QLabel(self)
+        self.brand_label.setText("相机品牌")
+        self.layout.addWidget(self.brand_label, 0, 0, 1, 1)
+
+        self.brand = QComboBox(self)
+        self.brand.addItem("")
+        self.brand.addItems(list(self.agent.records['Camera_records'].keys()))
+        self.layout.addWidget(self.brand, 0, 1, 1, 2)
+
+        self.model_label = QLabel(self)
+        self.model_label.setText("相机型号")
+        self.layout.addWidget(self.model_label, 1, 0, 1, 1)
+
+        self.model = QComboBox(self)
+        self.model.addItem("")
+        self.layout.addWidget(self.model, 1, 1, 1, 2)
+
+        '''创建一个确认键和取消键'''
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        '''创建对话框按钮'''
+        self.buttonBox = QDialogButtonBox(QBtn)
+        '''对话框确认信号连接到确认槽函数'''
+        self.buttonBox.accepted.connect(self._ok)
+        '''对话框取消按钮连接到取消槽函数'''
+        self.buttonBox.rejected.connect(self._cancel)
+        self.layout.addWidget(self.buttonBox, 2 ,0, 1, 3)
+
+        self.setLayout(self.layout)
+
+    def _init_connect(self):
+        self.brand.currentTextChanged.connect(self._update_model_list)
+    
+    def _update_model_list(self):
+        brand = self.brand.currentText()
+        if brand != "":
+            self.model.clear()
+            self.model.addItem("")
+            self.model.addItems(self.agent.records['Camera_records'][brand])
+
+    def _ok(self):
+        brand = self.brand.currentText()
+        model = self.model.currentText()
+        if brand != "" and model != "":
+            self.ret.emit([brand, model])
+            self.done(QDialog.Accepted)
+        else:
+            self.done(QDialog.Rejected)
+    
+    def _cancel(self):
+        self.done(QDialog.Rejected)
 
 class Stream(QObject):
     stream_update = Signal(str)
