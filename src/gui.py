@@ -16,7 +16,7 @@ class MyMainWindow(QMainWindow):
         super().__init__()
         screen = QGuiApplication.primaryScreen().geometry()
         self.setWindowTitle('MiLeicaStyleWatermark')
-        self.setFixedSize(int(screen.width()/3), int(screen.height()/3))
+        self.setFixedSize(int(screen.width()/2.6), int(screen.height()/3))
         icon = QIcon()
         icon.addFile(os.path.join(watermark.ROOT_PATH, "resources", "icons", "watermark.png"))
         self.setWindowIcon(icon)
