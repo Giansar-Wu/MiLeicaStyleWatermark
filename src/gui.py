@@ -84,7 +84,7 @@ class MyMainWindow(QMainWindow):
         self.out_quality_input = QSpinBox(self.central_widget)
         self.out_quality_input.setMinimum(1)
         self.out_quality_input.setMaximum(100)
-        self.out_quality_input.setValue(90)
+        self.out_quality_input.setValue(80)
         self.central_layout.addWidget(self.out_quality_input, 2, 3, 1, 1)
 
         # out author label
@@ -94,7 +94,7 @@ class MyMainWindow(QMainWindow):
 
         # out author input
         self.out_author_input = QLineEdit(self.central_widget)
-        self.out_author_input.setText("Artist")
+        self.out_author_input.setText("")
         self.central_layout.addWidget(self.out_author_input, 2, 5, 1, 1)
 
         # start button 
@@ -128,7 +128,7 @@ class MyMainWindow(QMainWindow):
     def _out_format_change_event(self):
         current_format = self.out_format_select.currentText()
         if current_format == 'jpg':
-            self.out_quality_input.setValue(90)
+            self.out_quality_input.setValue(80)
             self.out_quality_input.setReadOnly(False)
         elif current_format == 'png':
             self.out_quality_input.setValue(100)

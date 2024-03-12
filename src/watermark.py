@@ -145,6 +145,7 @@ class WaterMarkAgent(object):
         return logos_list
 
     def _add_watermark(self, image_file: str, out_dir: str, out_format: str, out_quality: int | None=None, artist: str | None=None) -> bool:
+        # return False
         image_name = os.path.splitext(os.path.basename(image_file))
         print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 正在处理:{image_name[0]}{image_name[1]}\n", end='')
 
@@ -224,6 +225,8 @@ class WaterMarkAgent(object):
             right_text_3 = F"PHOTO BY {artist}"
         elif exif_data['Artist']:
             right_text_3 = F"PHOTO BY {exif_data['Artist']}"
+        else:
+            right_text_3 = ""
 
         draw = ImageDraw.Draw(background_img)
 
