@@ -25,6 +25,18 @@ class WaterMarkAgent(object):
     def __init__(self) -> None:
         self._logos = self._get_logo()
         self._init_record()
+
+        # 加水印后的图片从上到下的构成  margin + img_height + margin + margin_2 + watermark_height + margin_2 + margin
+        # 第一行字体与水印区高度的比例
+        self.font_1_ratio = 0.42
+        # 第二行字体与水印区高度的比例
+        self.font_2_ratio = 0.32
+        # 最外侧边距与图片最长边的比例
+        self.margin_ratio = 0.025
+        # 水印区高度与图片最长边的比例
+        self.watermark_height_ratio = 0.04
+        # 水印区内边距与最外侧边距的比例
+        self.margin_2_ratio = 0
     
     def _init_record(self):
         if os.path.exists(RECORDS_PATH):
@@ -53,13 +65,13 @@ class WaterMarkAgent(object):
         with open(RECORDS_PATH, 'w') as f:
             json.dump(self.records, f)
 
-    def run(self, in_dir: str, out_dir: str=DEFAULT_OUT_DIR, out_format: str='jpg', out_quality: int | None = None, artist: str | None = None) -> list:
+    def run(self, in_dir: str, out_dir: str=DEFAULT_OUT_DIR, out_format: str='jpg', out_quality: int | None = None, artist: str | None = None) -> tuple[int, list]:
         if in_dir == "":
             print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 照片文件夹不可为空!")
-            return []
+            return 2, []
         elif not os.path.exists(in_dir):
             print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 照片文件夹不存在!")
-            return []
+            return 2, []
         else:
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
@@ -70,10 +82,13 @@ class WaterMarkAgent(object):
                     pool_ret = threadpool.starmap(self._add_watermark, args)
                 img_list = np.array(img_list)
                 ret = img_list[~np.array(pool_ret)].tolist()
-                return ret
+                if ret:
+                    return 1, ret
+                else:
+                    return 0, ret
             else:
                 print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 未找到照片!")
-                return []
+                return 2, []
     
     def run2(self, files: list, brand: str, model: str, out_dir: str=DEFAULT_OUT_DIR, out_format: str='jpg', out_quality: int | None = None, artist: str | None = None):
         exif_data = {}
@@ -168,22 +183,10 @@ class WaterMarkAgent(object):
                 elif orientation== 8 : 
                     img = img.rotate(90, expand = True)
         img_width, img_height = img.size
-        
-        # 加水印后的图片从上到下的构成  margin + img_height + margin + margin_2 + watermark_height + margin_2 + margin
-        # 第一行字体与水印区高度的比例
-        font_1_ratio = 0.42
-        # 第二行字体与水印区高度的比例
-        font_2_ratio = 0.32
-        # 最外侧边距与图片最长边的比例
-        margin_ratio = 1/100 
-        # 水印区高度与图片最长边的比例
-        watermark_height_ratio = 1/24 
-        # 水印区内边距与最外侧边距的比例
-        margin_2_ratio = 0
 
-        margin = int(margin_ratio * max(img_width, img_height))
-        watermark_height = int(watermark_height_ratio * max(img_width, img_height))
-        margin_2 = int(margin_2_ratio * margin)
+        margin = int(self.margin_ratio * max(img_width, img_height))
+        watermark_height = int(self.watermark_height_ratio * max(img_width, img_height))
+        margin_2 = int(self.margin_2_ratio * margin)
         bottom = watermark_height + margin * 2 + margin_2 * 2
 
         # logo与水印区全高度的比例 0~1
@@ -231,11 +234,11 @@ class WaterMarkAgent(object):
         draw = ImageDraw.Draw(background_img)
 
         font_file_1 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Bold.ttf')
-        font_pt_1 = int(watermark_height * font_1_ratio)
+        font_pt_1 = int(watermark_height * self.font_1_ratio)
         font_1 = ImageFont.truetype(font_file_1, font_pt_1)
 
         font_file_2 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Regular.ttf')
-        font_pt_2 = int(watermark_height * font_2_ratio)
+        font_pt_2 = int(watermark_height * self.font_2_ratio)
         font_2 = ImageFont.truetype(font_file_2, font_pt_2)
         
         text_1_top = new_height - margin - margin_2 - watermark_height
@@ -295,22 +298,10 @@ class WaterMarkAgent(object):
                 elif orientation== 8 : 
                     img = img.rotate(90, expand = True)
         img_width, img_height = img.size
-        
-        # 加水印后的图片从上到下的构成  margin + img_height + margin + margin_2 + watermark_height + margin_2 + margin
-        # 第一行字体与水印区高度的比例
-        font_1_ratio = 0.42
-        # 第二行字体与水印区高度的比例
-        font_2_ratio = 0.32
-        # 最外侧边距与图片最长边的比例
-        margin_ratio = 1/100 
-        # 水印区高度与图片最长边的比例
-        watermark_height_ratio = 1/22 
-        # 水印区内边距与最外侧边距的比例
-        margin_2_ratio = 0
 
-        margin = int(margin_ratio * max(img_width, img_height))
-        watermark_height = int(watermark_height_ratio * max(img_width, img_height))
-        margin_2 = int(margin_2_ratio * margin)
+        margin = int(self.margin_ratio * max(img_width, img_height))
+        watermark_height = int(self.watermark_height_ratio * max(img_width, img_height))
+        margin_2 = int(self.margin_2_ratio * margin)
         bottom = watermark_height + margin * 2 + margin_2 * 2
 
         # logo与水印区全高度的比例 0~1
@@ -371,11 +362,11 @@ class WaterMarkAgent(object):
         draw = ImageDraw.Draw(background_img)
 
         font_file_1 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Bold.ttf')
-        font_pt_1 = int(watermark_height * font_1_ratio)
+        font_pt_1 = int(watermark_height * self.font_1_ratio)
         font_1 = ImageFont.truetype(font_file_1, font_pt_1)
 
         font_file_2 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Regular.ttf')
-        font_pt_2 = int(watermark_height * font_2_ratio)
+        font_pt_2 = int(watermark_height * self.font_2_ratio)
         font_2 = ImageFont.truetype(font_file_2, font_pt_2)
         
         text_1_left = guideline_left + margin

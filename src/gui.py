@@ -146,7 +146,6 @@ class MyMainWindow(QMainWindow):
     
     def _change_start_button_event(self):
         self.start_button.setEnabled(True)
-        print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 添加水印完成!")
 
     def _write_log_info(self, text: str):
         log_cursor = self.log_display.textCursor()
@@ -164,15 +163,19 @@ class MyMainWindow(QMainWindow):
         self.log_display.ensureCursorVisible()
     
     def _start(self, in_dir: str, out_dir: str, out_format: str, out_quality: int | None, artist: str | None):
-        ret = self.agent.run(in_dir, out_dir, out_format, out_quality, artist)
-        if ret:
+        exit_code, ret = self.agent.run(in_dir, out_dir, out_format, out_quality, artist)
+        if exit_code == 0:
+            print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 添加水印完成!")
+            self._change_start_button_event()
+        elif exit_code == 1:
             self.stage2_needed.emit(ret)
-        else:
+        elif exit_code == 2:
             self._change_start_button_event()
     
     def _start2(self, files: list, brand: str, model: str, out_dir: str, out_format: str, out_quality: int | None, artist: str | None):
         self.agent.run2(files, brand, model, out_dir, out_format, out_quality, artist)
         self._change_start_button_event()
+        print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 添加水印完成!")
     
     def _stage2_event(self, files: list):
         dlg = QMessageBox.question(self, "询问", F"{files} 没有exif信息!是否自定义输入照片信息添加水印？")
