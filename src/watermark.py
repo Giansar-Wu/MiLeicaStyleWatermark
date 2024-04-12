@@ -4,7 +4,7 @@ import json
 import datetime
 from multiprocessing.pool import ThreadPool
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ExifTags
+from PIL import Image, ImageOps, ImageDraw, ImageFont, ExifTags
 import exifread
 
 from pillow_heif import register_heif_opener
@@ -19,24 +19,24 @@ DEFAULT_OUT_DIR = os.path.join(USER_PATH, 'Desktop', 'Output')
 RECORDS_PATH = os.path.join(ROOT_PATH, 'resources', 'data', 'records.json')
 SUPPORT_IN_FORMAT = ['.jpg', '.png', '.JPG', '.PNG']
 SUPPORT_OUT_FORMAT = ['jpg', 'png']
-PHONE = {'2112123AC':'Xiaomi 12X'}
+PHONE = {'2112123AC':'XIAOMI 12X',
+         '24053PY09C':'XIAOMI CIVI4 PRO'}
 
 class WaterMarkAgent(object):
     def __init__(self) -> None:
         self._logos = self._get_logo()
         self._init_record()
 
-        # 加水印后的图片从上到下的构成  margin + img_height + margin + margin_2 + watermark_height + margin_2 + margin
-        # 第一行字体与水印区高度的比例
-        self.font_1_ratio = 0.42
-        # 第二行字体与水印区高度的比例
-        self.font_2_ratio = 0.32
+        # 加水印后 从上到下 margin + img_height + watermark
+        # 加水印后 从左到右 margin + img_width + margin
         # 最外侧边距与图片最长边的比例
-        self.margin_ratio = 0.025
+        self.margin_ratio = 0.0
         # 水印区高度与图片最长边的比例
-        self.watermark_height_ratio = 0.04
-        # 水印区内边距与最外侧边距的比例
-        self.margin_2_ratio = 0
+        self.watermark_ratio = 0.1
+        # 第一行字体与水印区高度的比例
+        self.font_1_ratio = 0.46
+        # 第二行字体与水印区高度的比例
+        self.font_2_ratio = 0.35
     
     def _init_record(self):
         if os.path.exists(RECORDS_PATH):
@@ -50,14 +50,14 @@ class WaterMarkAgent(object):
     
     def _update_record(self, exif_data: dict):
         brand = exif_data['CameraMaker'].split(" ")[0].title()
-        if  brand != '' and brand not in self.records['Camera_records'].keys():
+        if brand != '' and brand not in self.records['Camera_records'].keys():
             self.records['Camera_records'][brand] = []
 
         model = exif_data['Camera']
         if model != '' and model not in self.records['Camera_records'][brand]:
             self.records['Camera_records'][brand].append(model)
 
-        lenmodel = exif_data['LenModel']
+        lenmodel = exif_data.get('LenModel', '')
         if lenmodel != '' and lenmodel not in self.records['Lens_records']:
             self.records['Lens_records'].append(lenmodel)
         
@@ -119,22 +119,40 @@ class WaterMarkAgent(object):
         ret = {}
         f = open(image_file, 'rb')
         tags = exifread.process_file(f)
-        # for tag in tags.keys():
-        #     if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename', 'EXIF MakerNote'):
-        #         print(F"{tag}:{tags[tag]}")
-        ret['CameraMaker'] = str(tags.get("Image Make", ""))
-        if ret['CameraMaker'] == "":
-            return ret
-        ret['Camera'] = str(tags.get("Image Model", ""))
-        if ret['Camera'] in PHONE.keys():
-            ret['Camera'] = PHONE[ret['Camera']]
+        
+        tmp = str(tags.get("Image Make", ""))
+        if tmp == "":
+            return {}
+        else:
+            ret['CameraMaker'] = tmp 
+
+        tmp = str(tags.get("Image Model", ""))
+        if tmp in PHONE.keys():
+            tmp = PHONE[tmp]
+        ret['Camera'] = tmp
+
         ret['LenModel'] = str(tags.get("EXIF LensModel", ""))
-        ret['DateTime'] = str(tags.get("EXIF DateTimeOriginal", ""))
-        datetime = ret['DateTime'].split(" ")
-        date = datetime[0]
-        date = "/".join(date.split(":"))
-        time = datetime[1]
+        
+        tmp = str(tags.get("EXIF DateTimeOriginal", ""))
+        tmp = tmp.split(" ")
+        date = tmp[0]
+        date = date.replace(':', '.')
+        time = tmp[1]
         ret['DateTime'] = F"{date} {time}"
+
+        latitude = str(tags.get("GPS GPSLatitude", ""))
+        longitude = str(tags.get("GPS GPSLongitude", ""))
+        if latitude and longitude:
+            latitude = latitude.replace('[', '').replace(']', '').split(',')
+            tmp = latitude[2].split('/')
+            latitude[2] = int(tmp[0]) / int(tmp[1])
+            longitude = longitude.replace('[', '').replace(']', '').split(',')
+            tmp = longitude[2].split('/')
+            longitude[2] = int(tmp[0]) / int(tmp[1])
+            ret['Location'] = F"{int(latitude[0])}°{int(latitude[1])}′{int(latitude[2])}″{str(tags.get('GPS GPSLatitudeRef'))} {int(longitude[0])}°{int(longitude[1])}′{int(longitude[2])}″{str(tags.get('GPS GPSLongitudeRef'))}"
+        else:
+            ret['Location'] = ""
+
         ret['ExposureTime'] = str(tags.get("EXIF ExposureTime", ""))
         ret['FNumber'] = str(tags.get("EXIF FNumber", ""))
         if '/' in ret['FNumber']:
@@ -160,50 +178,38 @@ class WaterMarkAgent(object):
         return logos_list
 
     def _add_watermark(self, image_file: str, out_dir: str, out_format: str, out_quality: int | None=None, artist: str | None=None) -> bool:
-        # return False
         image_name = os.path.splitext(os.path.basename(image_file))
         print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 正在处理:{image_name[0]}{image_name[1]}\n", end='')
 
         exif_data = self._get_exif(image_file)
 
-        if exif_data['CameraMaker'] == "":
+        if not exif_data:
             print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {image_name[0]}{image_name[1]} 没有exif数据!\n", end='')
             return False
 
         img = Image.open(image_file)
-        exif=dict(img.getexif().items())
-        # angles = [Image.ROTATE_90, Image.ROTATE_180, Image.ROTATE_270]
-        for key in exif.keys():
-            if key in ExifTags.TAGS.keys() and ExifTags.TAGS[key] == "Orientation":
-                orientation = exif[key]
-                if orientation == 3 : 
-                    img = img.rotate(180, expand = True)
-                elif orientation == 6 : 
-                    img = img.rotate(270, expand = True)
-                elif orientation== 8 : 
-                    img = img.rotate(90, expand = True)
+        img = ImageOps.exif_transpose(img) 
         img_width, img_height = img.size
 
         margin = int(self.margin_ratio * max(img_width, img_height))
-        watermark_height = int(self.watermark_height_ratio * max(img_width, img_height))
-        margin_2 = int(self.margin_2_ratio * margin)
-        bottom = watermark_height + margin * 2 + margin_2 * 2
+        watermark_height = int(self.watermark_ratio * max(img_width, img_height))
+        watermark_margin = int(watermark_height * 0.3)
+        if watermark_margin < margin:
+            watermark_margin = margin
+        content_height = watermark_height - watermark_margin * 2
 
-        # logo与水印区全高度的比例 0~1
-        # logo_ratio = watermark_height / bottom
-        logo_ratio = 0.8
-
-        new_height = img_height + watermark_height + 3 * margin + 2 * margin_2
-        new_width = img_width + 2 * margin
+        new_height = margin + img_height + watermark_height
+        new_width = margin + img_width + margin
         background_img = Image.new("RGB", (new_width, new_height), 'white')
 
         # draw img
         background_img.paste(img, (margin, margin))
 
         # judge logo
-        brand = exif_data['CameraMaker'].split(" ")[0]
+        brand = exif_data['CameraMaker'].split(' ')[0]
         brand = brand.title()
-        # brand = 'Sony'
+        if brand == 'Xiaomi':
+            brand = 'Leica'
         has_not_logo = True
         for logo in self._logos:
             if brand in os.path.basename(logo):
@@ -214,69 +220,60 @@ class WaterMarkAgent(object):
             return False
 
         # draw text
-        left_text_1 = F"{exif_data['Camera']}"
-        left_text_2 = F"{exif_data['LenModel']}"
+        left_text_1 = exif_data['Camera']
+        left_text_2 = exif_data['DateTime']
 
-        # 不等效焦距
-        # right_text_1 = F"{exif_data['FocalLength']}mm  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
         # 等效焦距
-        right_text_1 = F"{exif_data['35mmFilm']}mm  f/{exif_data['FNumber']}  {exif_data['ExposureTime']}s  ISO-{exif_data['ISO']}"
+        right_text_1 = F"{exif_data['35mmFilm']}mm f/{exif_data['FNumber']} {exif_data['ExposureTime']}s ISO{exif_data['ISO']}"
 
-        right_text_2 = F"{exif_data['DateTime']}"
-        right_text_3 = ""
-        if artist:
-            right_text_3 = F"PHOTO BY {artist}"
-        elif exif_data['Artist']:
-            right_text_3 = F"PHOTO BY {exif_data['Artist']}"
-        else:
-            right_text_3 = ""
+        right_text_2 = exif_data['Location']
+        if not right_text_2:
+            # right_text_2 = exif_data['LenModel']
+            if not exif_data['Artist'] and not artist:
+                right_text_2 = F"PHOTO BY {exif_data['CameraMaker'].split(' ')[0]}"
+            elif artist:
+                right_text_2 = F"PHOTO BY {artist}"
+            else:
+                right_text_2 = F"PHOTO BY {exif_data['Artist']}"
 
         draw = ImageDraw.Draw(background_img)
 
-        font_file_1 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Bold.ttf')
-        font_pt_1 = int(watermark_height * self.font_1_ratio)
+        font_file_1 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Demibold.ttf')
+        font_pt_1 = int(content_height * self.font_1_ratio)
         font_1 = ImageFont.truetype(font_file_1, font_pt_1)
 
         font_file_2 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Regular.ttf')
-        font_pt_2 = int(watermark_height * self.font_2_ratio)
+        font_pt_2 = int(content_height * self.font_2_ratio)
         font_2 = ImageFont.truetype(font_file_2, font_pt_2)
         
-        text_1_top = new_height - margin - margin_2 - watermark_height
-        text_2_baseline = new_height - margin - margin_2
-        draw.text((margin, text_1_top), left_text_1, fill='black', anchor="lt", font=font_1)
-        draw.text((margin, text_2_baseline), left_text_2, fill='gray', anchor="ls", font=font_2)
+        text_1_top = new_height - watermark_height + watermark_margin
+        text_2_baseline = new_height - watermark_margin
+        draw.text((watermark_margin, text_1_top), left_text_1, fill='black', anchor="lt", font=font_1)
+        draw.text((watermark_margin, text_2_baseline), left_text_2, fill='gray', anchor="ls", font=font_2)
 
-        draw.text((new_width - margin, text_1_top), right_text_1, fill='black', anchor="rt", font=font_1)
+        draw.text((new_width - watermark_margin, text_1_top), right_text_1, fill='black', anchor="rt", font=font_1)
         r_text_1_width = int(font_1.getlength(right_text_1))
-        draw.text((new_width - margin - r_text_1_width, text_2_baseline), right_text_2, fill='gray', anchor="ls", font=font_2)
-        draw.text((new_width - margin, text_2_baseline), right_text_3, fill='gray', anchor="rs", font=font_2)
+        draw.text((new_width - watermark_margin - r_text_1_width, text_2_baseline), right_text_2, fill='gray', anchor="ls", font=font_2)
 
         # draw guideline
-        guideline_length = watermark_height + 2 * margin_2 + margin
-        guideline = Image.new("RGB", (5, guideline_length), "gray")
-        guideline_left = new_width - margin - r_text_1_width - int(0.5 * margin)
-        guideline_top = new_height - margin - 2 * margin_2 - watermark_height - int(margin / 2)
+        guideline = Image.new("RGB", (5, content_height), "gray")
+        guideline_left = new_width - watermark_margin - r_text_1_width - int(0.3 * content_height)
+        guideline_top = text_1_top
         background_img.paste(guideline, (guideline_left, guideline_top))
 
         # draw logo
         logo_img = Image.open(logo_file)
         logo_img = logo_img.convert("RGBA")
-        logo_width, logo_height = logo_img.size
-        h = bottom * logo_ratio
-        logo_area_ratio = math.sqrt(h ** 2 / (logo_width * logo_height))
-        logo_new_width = int(logo_width * logo_area_ratio)
-        logo_new_height = int(logo_height * logo_area_ratio)
-        logo_img = logo_img.resize((logo_new_width, logo_new_height), Image.LANCZOS)
+        logo_img = logo_img.resize((content_height, content_height), Image.LANCZOS)
 
-        logo_left = new_width - 2 * margin - r_text_1_width - logo_new_width
-        logo_top = int(new_height - bottom / 2 -  logo_new_height / 2)
+        logo_left = new_width - watermark_margin - r_text_1_width - 2 * int(0.3 * content_height) - content_height
+        logo_top = text_1_top
         r, g, b, a = logo_img.split()
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
 
         # 保存修改后的图片
         out_filename = os.path.join(out_dir, F"Mark_{image_name[0]}.{out_format}")
-        xy_resolution= (exif_data['XResolution'] if exif_data['XResolution'] < 300 else 300, exif_data['YResolution'] if exif_data['YResolution'] < 300 else 300)
-        background_img.save(out_filename, dpi=xy_resolution, quality=out_quality)
+        background_img.save(out_filename, dpi=(300, 300), quality=out_quality)
         self._update_record(exif_data)
         return True
 
@@ -284,98 +281,78 @@ class WaterMarkAgent(object):
         image_name = os.path.splitext(os.path.basename(image_file))
         print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 正在处理:{image_name[0]}{image_name[1]}")
 
-        # exif_data = {'CameraMaker': 'NIKON CORPORATION', 'Camera': 'NIKON Z fc', 'LenModel': '0.0 mm f/0.0', 'DateTime': '2023/12/27 19:12:33', 'ExposureTime': '1/60', 'FNumber': '', 'ISO': '640', 'FocalLength': '', '35mmFilm': '', 'XResolution': 300, 'YResolution': 300, 'Artist': ''}
         img = Image.open(image_file)
-        exif=dict(img.getexif().items())
-        # angles = [Image.ROTATE_90, Image.ROTATE_180, Image.ROTATE_270]
-        for key in exif.keys():
-            if key in ExifTags.TAGS.keys() and ExifTags.TAGS[key] == "Orientation":
-                orientation = exif[key]
-                if orientation == 3 : 
-                    img = img.rotate(180, expand = True)
-                elif orientation == 6 : 
-                    img = img.rotate(270, expand = True)
-                elif orientation== 8 : 
-                    img = img.rotate(90, expand = True)
+        img = ImageOps.exif_transpose(img) 
         img_width, img_height = img.size
 
         margin = int(self.margin_ratio * max(img_width, img_height))
-        watermark_height = int(self.watermark_height_ratio * max(img_width, img_height))
-        margin_2 = int(self.margin_2_ratio * margin)
-        bottom = watermark_height + margin * 2 + margin_2 * 2
+        watermark_height = int(self.watermark_ratio * max(img_width, img_height))
+        watermark_margin = int(watermark_height * 0.3)
+        if watermark_margin < margin:
+            watermark_margin = margin
+        content_height = watermark_height - watermark_margin * 2
 
-        # logo与水印区全高度的比例 0~1
-        # logo_ratio = watermark_height / bottom
-        logo_ratio = 0.8
-
-        new_height = img_height + watermark_height + 3 * margin + 2 * margin_2
-        new_width = img_width + 2 * margin
+        new_height = margin + img_height + watermark_height
+        new_width = margin + img_width + margin
         background_img = Image.new("RGB", (new_width, new_height), 'white')
 
         # draw img
         background_img.paste(img, (margin, margin))
 
         # judge logo
-        brand = exif_data['CameraMaker'].split(" ")[0]
+        brand = exif_data['CameraMaker'].split(' ')[0]
         brand = brand.title()
-        # brand = 'Sony'
+        if brand == 'Xiaomi':
+            brand = 'Leica'
         has_not_logo = True
         for logo in self._logos:
             if brand in os.path.basename(logo):
                 logo_file = logo
                 has_not_logo = False
         if has_not_logo:
-            print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {brand}'s logo doesn't exist.")
-            return None
+            print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {brand}'s logo doesn't exist.\n", end='')
+            return False
 
         # draw guideline
-        guideline_length = watermark_height + 2 * margin_2 + margin
+        guideline_length = watermark_height - 2 * watermark_margin
         guideline = Image.new("RGB", (5, guideline_length), "gray")
         guideline_left = int(new_width / 2)
-        guideline_top = new_height - margin - 2 * margin_2 - watermark_height - int(margin / 2)
+        guideline_top = new_height - watermark_height + watermark_margin
         background_img.paste(guideline, (guideline_left, guideline_top))
 
         # draw logo
         logo_img = Image.open(logo_file)
         logo_img = logo_img.convert("RGBA")
-        logo_width, logo_height = logo_img.size
-        h = bottom * logo_ratio
-        logo_area_ratio = math.sqrt(h ** 2 / (logo_width * logo_height))
-        logo_new_width = int(logo_width * logo_area_ratio)
-        logo_new_height = int(logo_height * logo_area_ratio)
-        logo_img = logo_img.resize((logo_new_width, logo_new_height), Image.LANCZOS)
+        logo_img = logo_img.resize((content_height, content_height), Image.LANCZOS)
 
-        logo_left = guideline_left - margin - logo_new_width
-        logo_top = int(new_height - bottom / 2 -  logo_new_height / 2)
+        logo_left = guideline_left - int(0.3 * content_height) - content_height
+        logo_top = guideline_top
         r, g, b, a = logo_img.split()
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
 
         # draw text
-        left_text_1 = F"{exif_data['Camera']}"
-
-        right_text_3 = ""
+        right_text_1 = F"{exif_data['Camera']}"
         if artist:
-            right_text_3 = F"PHOTO BY {artist}"
-        elif exif_data['Artist']:
-            right_text_3 = F"PHOTO BY {exif_data['Artist']}"
+            right_text_2 = F"PHOTO BY {artist}"
+        else:
+            right_text_2 = F"PHOTO BY {exif_data['CameraMaker'].split(' ')[0]}"
 
         draw = ImageDraw.Draw(background_img)
 
-        font_file_1 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Bold.ttf')
-        font_pt_1 = int(watermark_height * self.font_1_ratio)
+        font_file_1 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-DemiBold.ttf')
+        font_pt_1 = int(content_height * self.font_1_ratio)
         font_1 = ImageFont.truetype(font_file_1, font_pt_1)
 
         font_file_2 = os.path.join(ROOT_PATH, 'resources', 'fonts', 'MiSans-Regular.ttf')
-        font_pt_2 = int(watermark_height * self.font_2_ratio)
+        font_pt_2 = int(content_height * self.font_2_ratio)
         font_2 = ImageFont.truetype(font_file_2, font_pt_2)
         
-        text_1_left = guideline_left + margin
-        text_1_top = new_height - margin - margin_2 - watermark_height
-        text_2_baseline = new_height - margin - margin_2
-        draw.text((text_1_left, text_1_top), left_text_1, fill='black', anchor="lt", font=font_1)
-        draw.text((text_1_left, text_2_baseline), right_text_3, fill='gray', anchor="ls", font=font_2)
+        text_1_left = guideline_left + int(0.3 * content_height)
+        text_1_top = guideline_top
+        text_2_baseline = new_height - watermark_margin
+        draw.text((text_1_left, text_1_top), right_text_1, fill='black', anchor="lt", font=font_1)
+        draw.text((text_1_left, text_2_baseline), right_text_2, fill='gray', anchor="ls", font=font_2)
 
         # 保存修改后的图片
         out_filename = os.path.join(out_dir, F"Mark_{image_name[0]}.{out_format}")
-        # xy_resolution= (exif_data['XResolution'] if exif_data['XResolution'] < 300 else 300, exif_data['YResolution'] if exif_data['YResolution'] < 300 else 300)
         background_img.save(out_filename, dpi=(300, 300), quality=out_quality)

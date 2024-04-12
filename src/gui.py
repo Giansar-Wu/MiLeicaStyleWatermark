@@ -178,7 +178,12 @@ class MyMainWindow(QMainWindow):
         print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 添加水印完成!")
     
     def _stage2_event(self, files: list):
-        dlg = QMessageBox.question(self, "询问", F"{files} 没有exif信息!是否自定义输入照片信息添加水印？")
+        filenames=[]
+        for file in files:
+            filenames.append(os.path.basename(file))
+        if len(filenames) == 1:
+            filenames = filenames[0]
+        dlg = QMessageBox.question(self, "询问", F"{filenames} 没有exif信息!是否自定义输入照片信息添加水印？")
         if dlg == QMessageBox.Yes:
             self.dlg_ret = []
             new_dlg = CustomDialog(self, self.agent)
