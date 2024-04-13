@@ -19,8 +19,6 @@ DEFAULT_OUT_DIR = os.path.join(USER_PATH, 'Desktop', 'Output')
 RECORDS_PATH = os.path.join(ROOT_PATH, 'resources', 'data', 'records.json')
 SUPPORT_IN_FORMAT = ['.jpg', '.png', '.JPG', '.PNG']
 SUPPORT_OUT_FORMAT = ['jpg', 'png']
-PHONE = {'2112123AC':'XIAOMI 12X',
-         '24053PY09C':'XIAOMI CIVI4 PRO'}
 
 class WaterMarkAgent(object):
     def __init__(self) -> None:
@@ -34,9 +32,11 @@ class WaterMarkAgent(object):
         # 水印区高度与图片最长边的比例
         self.watermark_ratio = 0.1
         # 第一行字体与水印区高度的比例
-        self.font_1_ratio = 0.46
+        self.font_1_ratio = 0.48
         # 第二行字体与水印区高度的比例
-        self.font_2_ratio = 0.35
+        self.font_2_ratio = 0.36
+
+        self.guideline_logo_margin_ratio = 0.35
     
     def _init_record(self):
         if os.path.exists(RECORDS_PATH):
@@ -80,6 +80,7 @@ class WaterMarkAgent(object):
                 args = [(img, out_dir, out_format, out_quality, artist) for img in img_list]
                 with ThreadPool(10) as threadpool:
                     pool_ret = threadpool.starmap(self._add_watermark, args)
+                self._save_record()
                 img_list = np.array(img_list)
                 ret = img_list[~np.array(pool_ret)].tolist()
                 if ret:
@@ -119,17 +120,17 @@ class WaterMarkAgent(object):
         ret = {}
         f = open(image_file, 'rb')
         tags = exifread.process_file(f)
-        
+
         tmp = str(tags.get("Image Make", ""))
         if tmp == "":
             return {}
         else:
             ret['CameraMaker'] = tmp 
 
-        tmp = str(tags.get("Image Model", ""))
-        if tmp in PHONE.keys():
-            tmp = PHONE[tmp]
-        ret['Camera'] = tmp
+        ret['Camera'] = str(tags.get("Image Model", ""))
+
+        if ret['CameraMaker'].upper() == "XIAOMI":
+            ret['Camera'] = str(tags.get("EXIF Tag 0x9A00")).upper()
 
         ret['LenModel'] = str(tags.get("EXIF LensModel", ""))
         
@@ -197,6 +198,7 @@ class WaterMarkAgent(object):
         if watermark_margin < margin:
             watermark_margin = margin
         content_height = watermark_height - watermark_margin * 2
+        guideline_logo_margin = int(self.guideline_logo_margin_ratio * content_height)
 
         new_height = margin + img_height + watermark_height
         new_width = margin + img_width + margin
@@ -257,7 +259,7 @@ class WaterMarkAgent(object):
 
         # draw guideline
         guideline = Image.new("RGB", (5, content_height), "gray")
-        guideline_left = new_width - watermark_margin - r_text_1_width - int(0.3 * content_height)
+        guideline_left = new_width - watermark_margin - r_text_1_width - guideline_logo_margin
         guideline_top = text_1_top
         background_img.paste(guideline, (guideline_left, guideline_top))
 
@@ -266,7 +268,7 @@ class WaterMarkAgent(object):
         logo_img = logo_img.convert("RGBA")
         logo_img = logo_img.resize((content_height, content_height), Image.LANCZOS)
 
-        logo_left = new_width - watermark_margin - r_text_1_width - 2 * int(0.3 * content_height) - content_height
+        logo_left = new_width - watermark_margin - r_text_1_width - 2 * guideline_logo_margin - content_height
         logo_top = text_1_top
         r, g, b, a = logo_img.split()
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
@@ -291,6 +293,7 @@ class WaterMarkAgent(object):
         if watermark_margin < margin:
             watermark_margin = margin
         content_height = watermark_height - watermark_margin * 2
+        guideline_logo_margin = int(self.guideline_logo_margin_ratio * content_height)
 
         new_height = margin + img_height + watermark_height
         new_width = margin + img_width + margin
@@ -325,7 +328,7 @@ class WaterMarkAgent(object):
         logo_img = logo_img.convert("RGBA")
         logo_img = logo_img.resize((content_height, content_height), Image.LANCZOS)
 
-        logo_left = guideline_left - int(0.3 * content_height) - content_height
+        logo_left = guideline_left - guideline_logo_margin - content_height
         logo_top = guideline_top
         r, g, b, a = logo_img.split()
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
@@ -347,7 +350,7 @@ class WaterMarkAgent(object):
         font_pt_2 = int(content_height * self.font_2_ratio)
         font_2 = ImageFont.truetype(font_file_2, font_pt_2)
         
-        text_1_left = guideline_left + int(0.3 * content_height)
+        text_1_left = guideline_left + guideline_logo_margin
         text_1_top = guideline_top
         text_2_baseline = new_height - watermark_margin
         draw.text((text_1_left, text_1_top), right_text_1, fill='black', anchor="lt", font=font_1)

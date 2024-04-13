@@ -1,18 +1,1 @@
-{
-    "Camera_records": {
-        "Xiaomi": [
-            "Xiaomi 12X"
-        ],
-        "Nikon": [
-            "NIKON D850",
-            "NIKON Z 30",
-            "NIKON Z fc"
-        ]
-    },
-    "Lens_records": [
-        "NIKKOR Z DX 18-140mm f/3.5-6.3 VR",
-        "NIKKOR Z DX 16-50mm f/3.5-6.3 VR",
-        "56mm F1.4 DC DN | Contemporary 018",
-        "NIKKOR Z DX 50-250mm f/4.5-6.3 VR"
-    ]
-}
+{"Camera_records": {"Xiaomi": ["XIAOMI 12X", "XIAOMI CIVI 4 PRO"], "Nikon": ["NIKON D850", "NIKON Z 30", "NIKON Z fc"]}, "Lens_records": ["NIKKOR Z DX 18-140mm f/3.5-6.3 VR", "NIKKOR Z DX 16-50mm f/3.5-6.3 VR", "56mm F1.4 DC DN | Contemporary 018", "NIKKOR Z DX 50-250mm f/4.5-6.3 VR"]}
