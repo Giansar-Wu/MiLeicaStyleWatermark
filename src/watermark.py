@@ -251,14 +251,15 @@ class WaterMarkAgent(object):
         text_1_top = new_height - watermark_height + watermark_margin
         text_2_baseline = new_height - watermark_margin
         draw.text((watermark_margin, text_1_top), left_text_1, fill='black', anchor="lt", font=font_1)
-        draw.text((watermark_margin, text_2_baseline), left_text_2, fill='gray', anchor="ls", font=font_2)
+        draw.text((watermark_margin, text_2_baseline), left_text_2, fill='#888888', anchor="ls", font=font_2)
 
         draw.text((new_width - watermark_margin, text_1_top), right_text_1, fill='black', anchor="rt", font=font_1)
         r_text_1_width = int(font_1.getlength(right_text_1))
-        draw.text((new_width - watermark_margin - r_text_1_width, text_2_baseline), right_text_2, fill='gray', anchor="ls", font=font_2)
+        draw.text((new_width - watermark_margin - r_text_1_width, text_2_baseline), right_text_2, fill='#888888', anchor="ls", font=font_2)
 
         # draw guideline
-        guideline = Image.new("RGB", (5, content_height), "gray")
+        guideline_width = int(0.0012 * max(img_width, img_height))
+        guideline = Image.new("RGB", (guideline_width, content_height), "#D0D0D0")
         guideline_left = new_width - watermark_margin - r_text_1_width - guideline_logo_margin
         guideline_top = text_1_top
         background_img.paste(guideline, (guideline_left, guideline_top))
@@ -317,8 +318,9 @@ class WaterMarkAgent(object):
             return False
 
         # draw guideline
+        guideline_width = int(0.0012 * max(img_width, img_height))
         guideline_length = watermark_height - 2 * watermark_margin
-        guideline = Image.new("RGB", (5, guideline_length), "gray")
+        guideline = Image.new("RGB", (guideline_width, guideline_length), "#D0D0D0")
         guideline_left = int(new_width / 2)
         guideline_top = new_height - watermark_height + watermark_margin
         background_img.paste(guideline, (guideline_left, guideline_top))
@@ -354,7 +356,7 @@ class WaterMarkAgent(object):
         text_1_top = guideline_top
         text_2_baseline = new_height - watermark_margin
         draw.text((text_1_left, text_1_top), right_text_1, fill='black', anchor="lt", font=font_1)
-        draw.text((text_1_left, text_2_baseline), right_text_2, fill='gray', anchor="ls", font=font_2)
+        draw.text((text_1_left, text_2_baseline), right_text_2, fill='#888888', anchor="ls", font=font_2)
 
         # 保存修改后的图片
         out_filename = os.path.join(out_dir, F"Mark_{image_name[0]}.{out_format}")
