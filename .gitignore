@@ -1,4 +1,4 @@
 # ignore tests
 /tests
 
-/resources/data/
+/resources/data

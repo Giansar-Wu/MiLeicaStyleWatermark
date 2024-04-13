@@ -17,6 +17,8 @@ DESKTOP_PATH = os.path.join(USER_PATH, 'Desktop')
 ROOT_PATH = os.path.dirname(PATH)
 DEFAULT_OUT_DIR = os.path.join(USER_PATH, 'Desktop', 'Output')
 RECORDS_PATH = os.path.join(ROOT_PATH, 'resources', 'data', 'records.json')
+if not os.path.exists(os.path.dirname(RECORDS_PATH)):
+    os.makedirs(os.path.dirname(RECORDS_PATH))
 SUPPORT_IN_FORMAT = ['.jpg', '.png', '.JPG', '.PNG']
 SUPPORT_OUT_FORMAT = ['jpg', 'png']
 
