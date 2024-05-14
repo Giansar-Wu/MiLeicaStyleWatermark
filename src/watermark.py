@@ -185,11 +185,11 @@ class WaterMarkAgent(object):
         img = Image.open(image_file)
         img = ImageOps.exif_transpose(img)
         img_width, img_height = img.size
-        if resolution != 0 and img_width <= img_height and img_width != resolution:
-            img = img.resize((resolution, int(img_height / img_width * resolution)))
-        elif resolution != 0 and img_width >= img_height and img_height != resolution:
-            img = img.resize((int(img_width / img_height * resolution), resolution))
-        img_width, img_height = img.size
+        # if resolution != 0 and img_width <= img_height and img_width != resolution:
+        #     img = img.resize((resolution, int(img_height / img_width * resolution)))
+        # elif resolution != 0 and img_width >= img_height and img_height != resolution:
+        #     img = img.resize((int(img_width / img_height * resolution), resolution))
+        # img_width, img_height = img.size
 
         margin = int(self.margin_ratio * max(img_width, img_height))
         watermark_height = int(self.watermark_ratio * max(img_width, img_height))
@@ -260,6 +260,12 @@ class WaterMarkAgent(object):
         r, g, b, a = logo_img.split()
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
 
+        img_width, img_height = background_img.size
+        if resolution != 0 and img_width <= img_height and img_width != resolution:
+            background_img = background_img.resize((resolution, int(img_height / img_width * resolution)))
+        elif resolution != 0 and img_width >= img_height and img_height != resolution:
+            background_img = background_img.resize((int(img_width / img_height * resolution), resolution))
+
         # 保存修改后的图片
         out_filename = os.path.join(out_dir, F"Mark_{image_name[0]}.{out_format}")
         background_img.save(out_filename, dpi=(300, 300), quality=out_quality)
@@ -273,11 +279,11 @@ class WaterMarkAgent(object):
         img = Image.open(image_file)
         img = ImageOps.exif_transpose(img) 
         img_width, img_height = img.size
-        if resolution != 0 and img_width <= img_height and img_width != resolution:
-            img = img.resize((resolution, int(img_height / img_width * resolution)))
-        elif resolution != 0 and img_width >= img_height and img_height != resolution:
-            img = img.resize((int(img_width / img_height * resolution), resolution))
-        img_width, img_height = img.size
+        # if resolution != 0 and img_width <= img_height and img_width != resolution:
+        #     img = img.resize((resolution, int(img_height / img_width * resolution)))
+        # elif resolution != 0 and img_width >= img_height and img_height != resolution:
+        #     img = img.resize((int(img_width / img_height * resolution), resolution))
+        # img_width, img_height = img.size
 
         margin = int(self.margin_ratio * max(img_width, img_height))
         watermark_height = int(self.watermark_ratio * max(img_width, img_height))
@@ -343,6 +349,12 @@ class WaterMarkAgent(object):
         text_2_baseline = new_height - watermark_margin
         draw.text((text_1_left, text_1_top), right_text_1, fill='black', anchor="lt", font=font_1)
         draw.text((text_1_left, text_2_baseline), right_text_2, fill='#888888', anchor="ls", font=font_2)
+
+        img_width, img_height = background_img.size
+        if resolution != 0 and img_width <= img_height and img_width != resolution:
+            background_img = background_img.resize((resolution, int(img_height / img_width * resolution)))
+        elif resolution != 0 and img_width >= img_height and img_height != resolution:
+            background_img = background_img.resize((int(img_width / img_height * resolution), resolution))
 
         # 保存修改后的图片
         out_filename = os.path.join(out_dir, F"Mark_{image_name[0]}.{out_format}")
