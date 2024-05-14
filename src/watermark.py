@@ -1,10 +1,10 @@
 import os
-import math
+import time
 import json
 import datetime
 from multiprocessing.pool import ThreadPool
 import numpy as np
-from PIL import Image, ImageOps, ImageDraw, ImageFont, ExifTags
+from PIL import Image, ImageOps, ImageDraw, ImageFont
 import exifread
 
 from pillow_heif import register_heif_opener
@@ -21,10 +21,10 @@ if not os.path.exists(os.path.dirname(RECORDS_PATH)):
     os.makedirs(os.path.dirname(RECORDS_PATH))
 SUPPORT_IN_FORMAT = ['.jpg', '.png', '.JPG', '.PNG']
 SUPPORT_OUT_FORMAT = ['jpg', 'png']
+OUT_RESOLUTION = {'1080P':1080, '2k':2160, '原图分辨率':0}
 
 class WaterMarkAgent(object):
     def __init__(self) -> None:
-        self._logos = self._get_logo()
         self._init_record()
 
         # 加水印后 从上到下 margin + img_height + watermark
@@ -67,7 +67,7 @@ class WaterMarkAgent(object):
         with open(RECORDS_PATH, 'w') as f:
             json.dump(self.records, f)
 
-    def run(self, in_dir: str, out_dir: str=DEFAULT_OUT_DIR, out_format: str='jpg', out_quality: int | None = None, artist: str | None = None) -> tuple[int, list]:
+    def run(self, in_dir: str, out_dir: str=DEFAULT_OUT_DIR, out_format: str='jpg', out_quality: int=100, resolution_key: str='原图分辨率') -> tuple[int, list]:
         if in_dir == "":
             print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 照片文件夹不可为空!")
             return 2, []
@@ -79,7 +79,7 @@ class WaterMarkAgent(object):
                 os.makedirs(out_dir)
             img_list = self._load_images(in_dir)
             if img_list:
-                args = [(img, out_dir, out_format, out_quality, artist) for img in img_list]
+                args = [(img, out_dir, out_format, out_quality, OUT_RESOLUTION[resolution_key]) for img in img_list]
                 with ThreadPool(10) as threadpool:
                     pool_ret = threadpool.starmap(self._add_watermark, args)
                 self._save_record()
@@ -93,13 +93,13 @@ class WaterMarkAgent(object):
                 print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 未找到照片!")
                 return 2, []
     
-    def run2(self, files: list, brand: str, model: str, out_dir: str=DEFAULT_OUT_DIR, out_format: str='jpg', out_quality: int | None = None, artist: str | None = None):
+    def run2(self, files: list, brand: str, model: str, len: str, out_dir: str=DEFAULT_OUT_DIR, out_format: str='jpg', out_quality: int=100, resolution: str='原图分辨率'):
         exif_data = {}
         exif_data['CameraMaker'] = brand
         exif_data['Camera'] = model
-        exif_data['Artist'] = artist
+        exif_data['LenModel'] = len
         for file in files:
-            self._add_watermark2(exif_data, file, out_dir, out_format, out_quality, artist)
+            self._add_watermark2(exif_data, file, out_dir, out_format, out_quality, OUT_RESOLUTION[resolution])
 
     def _load_images(self, in_path: str) -> list:
         if os.path.isdir(in_path):
@@ -172,15 +172,7 @@ class WaterMarkAgent(object):
         ret["Artist"] = str(tags.get("Image Artist", ""))
         return ret
 
-    def _get_logo(self) -> list:
-        path = os.path.join(ROOT_PATH, 'resources', 'logos')
-        logos_list = []
-        for root, _, files in os.walk(path):
-            for file in files:
-                logos_list.append(os.path.join(root, file))
-        return logos_list
-
-    def _add_watermark(self, image_file: str, out_dir: str, out_format: str, out_quality: int | None=None, artist: str | None=None) -> bool:
+    def _add_watermark(self, image_file: str, out_dir: str, out_format: str, out_quality: int, resolution: int) -> bool:
         image_name = os.path.splitext(os.path.basename(image_file))
         print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 正在处理:{image_name[0]}{image_name[1]}\n", end='')
 
@@ -191,7 +183,12 @@ class WaterMarkAgent(object):
             return False
 
         img = Image.open(image_file)
-        img = ImageOps.exif_transpose(img) 
+        img = ImageOps.exif_transpose(img)
+        img_width, img_height = img.size
+        if resolution != 0 and img_width <= img_height and img_width != resolution:
+            img = img.resize((resolution, int(img_height / img_width * resolution)))
+        elif resolution != 0 and img_width >= img_height and img_height != resolution:
+            img = img.resize((int(img_width / img_height * resolution), resolution))
         img_width, img_height = img.size
 
         margin = int(self.margin_ratio * max(img_width, img_height))
@@ -214,31 +211,18 @@ class WaterMarkAgent(object):
         brand = brand.title()
         if brand == 'Xiaomi':
             brand = 'Leica'
-        has_not_logo = True
-        for logo in self._logos:
-            if brand in os.path.basename(logo):
-                logo_file = logo
-                has_not_logo = False
-        if has_not_logo:
+        logo_file = os.path.join(ROOT_PATH, 'resources', 'logos', F"{brand}.png")
+        if not os.path.exists(logo_file):
             print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {brand}'s logo doesn't exist.\n", end='')
             return False
 
         # draw text
         left_text_1 = exif_data['Camera']
-        left_text_2 = exif_data['DateTime']
+        left_text_2 = exif_data['LenModel']
 
         # 等效焦距
         right_text_1 = F"{exif_data['35mmFilm']}mm f/{exif_data['FNumber']} {exif_data['ExposureTime']}s ISO{exif_data['ISO']}"
-
-        right_text_2 = exif_data['Location']
-        if not right_text_2:
-            # right_text_2 = exif_data['LenModel']
-            if not exif_data['Artist'] and not artist:
-                right_text_2 = F"PHOTO BY {exif_data['CameraMaker'].split(' ')[0]}"
-            elif artist:
-                right_text_2 = F"PHOTO BY {artist}"
-            else:
-                right_text_2 = F"PHOTO BY {exif_data['Artist']}"
+        right_text_2 = exif_data['DateTime']
 
         draw = ImageDraw.Draw(background_img)
 
@@ -282,12 +266,17 @@ class WaterMarkAgent(object):
         self._update_record(exif_data)
         return True
 
-    def _add_watermark2(self, exif_data: dict, image_file: str, out_dir: str, out_format: str, out_quality: int | None=None, artist: str | None=None) -> None:
+    def _add_watermark2(self, exif_data: dict, image_file: str, out_dir: str, out_format: str, out_quality: int, resolution: str) -> None:
         image_name = os.path.splitext(os.path.basename(image_file))
         print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 正在处理:{image_name[0]}{image_name[1]}")
 
         img = Image.open(image_file)
         img = ImageOps.exif_transpose(img) 
+        img_width, img_height = img.size
+        if resolution != 0 and img_width <= img_height and img_width != resolution:
+            img = img.resize((resolution, int(img_height / img_width * resolution)))
+        elif resolution != 0 and img_width >= img_height and img_height != resolution:
+            img = img.resize((int(img_width / img_height * resolution), resolution))
         img_width, img_height = img.size
 
         margin = int(self.margin_ratio * max(img_width, img_height))
@@ -310,12 +299,8 @@ class WaterMarkAgent(object):
         brand = brand.title()
         if brand == 'Xiaomi':
             brand = 'Leica'
-        has_not_logo = True
-        for logo in self._logos:
-            if brand in os.path.basename(logo):
-                logo_file = logo
-                has_not_logo = False
-        if has_not_logo:
+        logo_file = os.path.join(ROOT_PATH, 'resources', 'logos', F"{brand}.png")
+        if not os.path.exists(logo_file):
             print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {brand}'s logo doesn't exist.\n", end='')
             return False
 
@@ -338,11 +323,10 @@ class WaterMarkAgent(object):
         background_img.paste(logo_img, (logo_left, logo_top), mask=a)
 
         # draw text
-        right_text_1 = F"{exif_data['Camera']}"
-        if artist:
-            right_text_2 = F"PHOTO BY {artist}"
-        else:
-            right_text_2 = F"PHOTO BY {exif_data['CameraMaker'].split(' ')[0]}"
+        right_text_1 = exif_data['Camera']
+        right_text_2 = exif_data['LenModel']
+        if not right_text_2:
+            right_text_2 = time.strftime("%Y.%m.%d", time.localtime()) 
 
         draw = ImageDraw.Draw(background_img)
 

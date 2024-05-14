@@ -67,7 +67,7 @@ class MyMainWindow(QMainWindow):
 
         # out format label
         self.out_format_label = QLabel(self.central_widget)
-        self.out_format_label.setText("输出照片格式")
+        self.out_format_label.setText("输出图片格式")
         self.central_layout.addWidget(self.out_format_label, 2, 0, 1, 1)
 
         # out format select
@@ -77,25 +77,25 @@ class MyMainWindow(QMainWindow):
 
         # out quality label
         self.out_quality_label = QLabel(self.central_widget)
-        self.out_quality_label.setText("输出照片质量")
+        self.out_quality_label.setText("输出图片质量")
         self.central_layout.addWidget(self.out_quality_label, 2, 2, 1, 1)
 
         # out quality input
         self.out_quality_input = QSpinBox(self.central_widget)
         self.out_quality_input.setMinimum(1)
         self.out_quality_input.setMaximum(100)
-        self.out_quality_input.setValue(80)
+        self.out_quality_input.setValue(100)
         self.central_layout.addWidget(self.out_quality_input, 2, 3, 1, 1)
 
         # out author label
-        self.out_author_label = QLabel(self.central_widget)
-        self.out_author_label.setText("照片作者")
-        self.central_layout.addWidget(self.out_author_label, 2, 4, 1, 1)
+        self.out_resolution_label = QLabel(self.central_widget)
+        self.out_resolution_label.setText("输出图片分辨率")
+        self.central_layout.addWidget(self.out_resolution_label, 2, 4, 1, 1)
 
         # out author input
-        self.out_author_input = QLineEdit(self.central_widget)
-        self.out_author_input.setText("")
-        self.central_layout.addWidget(self.out_author_input, 2, 5, 1, 1)
+        self.out_resolution_input = QComboBox(self.central_widget)
+        self.out_resolution_input.addItems(watermark.OUT_RESOLUTION.keys())
+        self.central_layout.addWidget(self.out_resolution_input, 2, 5, 1, 1)
 
         # start button 
         self.start_button = QPushButton(self.central_widget)
@@ -126,13 +126,7 @@ class MyMainWindow(QMainWindow):
             self.save_path_display.setText(filepath)
     
     def _out_format_change_event(self):
-        current_format = self.out_format_select.currentText()
-        if current_format == 'jpg':
-            self.out_quality_input.setValue(80)
-            self.out_quality_input.setReadOnly(False)
-        elif current_format == 'png':
-            self.out_quality_input.setValue(100)
-            self.out_quality_input.setReadOnly(True)
+        self.out_quality_input.setValue(100)
 
     def _start_event(self):
         self.start_button.setEnabled(False)
@@ -140,8 +134,8 @@ class MyMainWindow(QMainWindow):
         out_dir = self.save_path_display.text()
         out_format = self.out_format_select.currentText()
         out_quality = self.out_quality_input.value()
-        artist = self.out_author_input.text()
-        mythread = Thread(target=self._start, args=(in_dir, out_dir, out_format, out_quality, artist), daemon=True)
+        resolution = self.out_resolution_input.currentText()
+        mythread = Thread(target=self._start, args=(in_dir, out_dir, out_format, out_quality, resolution), daemon=True)
         mythread.start()
     
     def _change_start_button_event(self):
@@ -172,8 +166,8 @@ class MyMainWindow(QMainWindow):
         elif exit_code == 2:
             self._change_start_button_event()
     
-    def _start2(self, files: list, brand: str, model: str, out_dir: str, out_format: str, out_quality: int | None, artist: str | None):
-        self.agent.run2(files, brand, model, out_dir, out_format, out_quality, artist)
+    def _start2(self, files: list, brand: str, model: str, len:str, out_dir: str, out_format: str, out_quality: int | None, artist: str | None):
+        self.agent.run2(files, brand, model, len, out_dir, out_format, out_quality, artist)
         self._change_start_button_event()
         print(F"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 添加水印完成!")
     
@@ -193,8 +187,8 @@ class MyMainWindow(QMainWindow):
                 out_dir = self.save_path_display.text()
                 out_format = self.out_format_select.currentText()
                 out_quality = self.out_quality_input.value()
-                artist = self.out_author_input.text()
-                self._start2(files, self.dlg_ret[0], self.dlg_ret[1], out_dir, out_format, out_quality, artist)
+                resolution = self.out_resolution_input.currentText()
+                self._start2(files, self.dlg_ret[0], self.dlg_ret[1], self.dlg_ret[2], out_dir, out_format, out_quality, resolution)
             else:
                 self._change_start_button_event()
         elif dlg == QMessageBox.No:
@@ -216,7 +210,7 @@ class CustomDialog(QDialog):
     
     def _init_ui(self):
         self.layout = QGridLayout()
-        for i in range(3):
+        for i in range(6):
             self.layout.setColumnMinimumWidth(i, 1)
             self.layout.setColumnStretch(i, 1)
         self.brand_label = QLabel(self)
@@ -226,15 +220,24 @@ class CustomDialog(QDialog):
         self.brand = QComboBox(self)
         self.brand.addItem("")
         self.brand.addItems(list(self.agent.records['Camera_records'].keys()))
-        self.layout.addWidget(self.brand, 0, 1, 1, 2)
+        self.layout.addWidget(self.brand, 0, 1, 1, 1)
 
         self.model_label = QLabel(self)
         self.model_label.setText("相机型号")
-        self.layout.addWidget(self.model_label, 1, 0, 1, 1)
+        self.layout.addWidget(self.model_label, 0, 2, 1, 1)
 
         self.model = QComboBox(self)
         self.model.addItem("")
-        self.layout.addWidget(self.model, 1, 1, 1, 2)
+        self.layout.addWidget(self.model, 0, 3, 1, 3)
+
+        self.len_label = QLabel(self)
+        self.len_label.setText("镜头")
+        self.layout.addWidget(self.len_label, 1, 0, 1, 1)
+
+        self.len_model = QComboBox(self)
+        self.len_model.addItem("")
+        self.len_model.addItems(list(self.agent.records['Lens_records']))
+        self.layout.addWidget(self.len_model, 1, 1, 1, 5)
 
         '''创建一个确认键和取消键'''
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
@@ -244,7 +247,7 @@ class CustomDialog(QDialog):
         self.buttonBox.accepted.connect(self._ok)
         '''对话框取消按钮连接到取消槽函数'''
         self.buttonBox.rejected.connect(self._cancel)
-        self.layout.addWidget(self.buttonBox, 2 ,0, 1, 3)
+        self.layout.addWidget(self.buttonBox, 2 ,0, 1, 6)
 
         self.setLayout(self.layout)
 
@@ -261,8 +264,9 @@ class CustomDialog(QDialog):
     def _ok(self):
         brand = self.brand.currentText()
         model = self.model.currentText()
+        len = self.len_model.currentText()
         if brand != "" and model != "":
-            self.ret.emit([brand, model])
+            self.ret.emit([brand, model, len])
             self.done(QDialog.Accepted)
         else:
             self.done(QDialog.Rejected)
